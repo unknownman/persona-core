@@ -19,11 +19,11 @@ class LookupHash implements CastsAttributes
             return null;
         }
 
-        $hashKey = config('persona.hash_key');
+        $hashKey = config('persona.hash_key') ?: config('app.key');
 
         if (is_null($hashKey) || $hashKey === '') {
             throw new RuntimeException(
-                'PERSONA_HASH_KEY is missing or empty. Please generate a unique key and set it in your .env file to secure sensitive Persona hashes.'
+                'No application or persona hash key has been specified. Please ensure APP_KEY or PERSONA_HASH_KEY is set in your .env file.'
             );
         }
 

@@ -8,12 +8,12 @@ return [
     |--------------------------------------------------------------------------
     |
     | A unique, application-specific key used to hash and secure sensitive
-    | Persona data. This MUST be set in your .env file as PERSONA_HASH_KEY.
-    | The service provider refuses to boot when this value is missing.
+    | Persona data. Defaults to APP_KEY when PERSONA_HASH_KEY is not set,
+    | so the package works out of the box with no extra configuration.
     |
     */
 
-    'hash_key' => env('PERSONA_HASH_KEY'),
+    'hash_key' => env('PERSONA_HASH_KEY', env('APP_KEY')),
 
     /*
     |--------------------------------------------------------------------------
