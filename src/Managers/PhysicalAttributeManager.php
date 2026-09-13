@@ -9,18 +9,6 @@ use Persona\Models\PhysicalAttribute;
 class PhysicalAttributeManager
 {
     /**
-     * The only columns a host application may write through this manager.
-     * The morph pair and timestamps are owned by the manager and excluded.
-     */
-    protected const FILLABLE_PROPERTIES = [
-        'height',
-        'weight',
-        'eye_color',
-        'hair_color',
-        'blood_type',
-    ];
-
-    /**
      * Update the existing PhysicalAttribute record for the given personable
      * model, or create one when none exists yet. There is exactly one such
      * record per entity, so this acts as the sole mutation entry point.
@@ -58,11 +46,14 @@ class PhysicalAttributeManager
      * Reduce the incoming attributes to the explicit whitelist, protecting
      * internal columns from raw array mass-assignment.
      *
+     * The whitelist lives in `persona.fillable.physical_attribute` so the
+     * host application can extend it without touching this manager.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     protected function map(array $attributes): array
     {
-        return array_intersect_key($attributes, array_flip(self::FILLABLE_PROPERTIES));
+        return array_intersect_key($attributes, array_flip(config('persona.fillable.physical_attribute', [])));
     }
 }

@@ -191,6 +191,49 @@ trait HasPersona
     }
 
     /**
+     * Eager-load every Persona section needed to render a full profile.
+     *
+     * Loads `profile`, `contacts`, `addresses`, `documents.files`,
+     * `socialAccounts`, `legalDetail`, and `physicalAttribute` in a single
+     * round-trip.  Combine with {@see loadPersonaRelationships()} to also
+     * resolve the entity graph on both sides:
+     *
+     *     $user->loadPersonaDetails();
+     *     $user->loadPersonaRelationships(); // → Collection<Relationship>
+     *
+     * @return static
+     */
+    public function loadPersonaDetails(): static
+    {
+        $this->load([
+            'profile',
+            'contacts',
+            'addresses',
+            'documents.files',
+            'socialAccounts',
+            'legalDetail',
+            'physicalAttribute',
+        ]);
+
+        return $this;
+    }
+
+    /**
+     * Load ALL relationships where this model appears on EITHER side.
+     *
+     * Both ends of each row (personable / relatedPersonable) are eager-loaded,
+     * so rendering a profile with N relationships stays N+1-free.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Relationship>
+     */
+    public function loadPersonaRelationships(): Collection
+    {
+        return Relationship::forEntity($this)
+            ->with(['personable', 'relatedPersonable'])
+            ->get();
+    }
+
+    /**
      * Get the Persona manager scoped to this model.
      */
     public function persona(): ScopedPersonaManager

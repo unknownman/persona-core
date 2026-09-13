@@ -6,9 +6,6 @@ use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
-use Persona\Contracts\EmailNormalizerContract;
-use Persona\Contracts\HandleNormalizerContract;
-use Persona\Contracts\PhoneNormalizerContract;
 use Persona\Models\Contact;
 use RuntimeException;
 
@@ -64,15 +61,14 @@ class PersonaUniqueContactValue implements ValidationRule
 
     /**
      * Normalize the given value through the bound normalizer for its type.
+     *
+     * The contract for each type is resolved from the shared
+     * `persona.normalizers` config map — the same map ContactManager reads —
+     * so uniqueness checks always canonicalize values identically to storage.
      */
     protected function normalize(string $type, string $value): string
     {
-        $contract = match ($type) {
-            'email' => EmailNormalizerContract::class,
-            'phone' => PhoneNormalizerContract::class,
-            'handle', 'username' => HandleNormalizerContract::class,
-            default => null,
-        };
+        $contract = config("persona.normalizers.{$type}");
 
         $container = $this->container ?? \Illuminate\Container\Container::getInstance();
 

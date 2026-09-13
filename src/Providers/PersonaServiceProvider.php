@@ -8,6 +8,7 @@ use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Contracts\EmailNormalizerContract;
 use Persona\Contracts\HandleNormalizerContract;
 use Persona\Contracts\PhoneNormalizerContract;
+use Persona\Contracts\SocialActivityResolverContract;
 use Persona\Managers\AddressManager;
 use Persona\Managers\ContactManager;
 use Persona\Managers\DocumentManager;
@@ -22,6 +23,7 @@ use Persona\Normalizers\DefaultEmailNormalizer;
 use Persona\Normalizers\DefaultHandleNormalizer;
 use Persona\Normalizers\DefaultPhoneNormalizer;
 use Persona\Services\NullDocumentVerificationProvider;
+use Persona\Services\NullSocialActivityResolver;
 use RuntimeException;
 
 class PersonaServiceProvider extends ServiceProvider
@@ -40,6 +42,7 @@ class PersonaServiceProvider extends ServiceProvider
         $this->app->singleton(HandleNormalizerContract::class, DefaultHandleNormalizer::class);
         $this->app->singleton(CountryNormalizerContract::class, DefaultCountryNormalizer::class);
         $this->app->singleton(DocumentVerificationProvider::class, NullDocumentVerificationProvider::class);
+        $this->app->singleton(SocialActivityResolverContract::class, NullSocialActivityResolver::class);
 
         $this->app->singleton(ContactManager::class, function ($app) {
             return new ContactManager($app);
@@ -98,7 +101,9 @@ class PersonaServiceProvider extends ServiceProvider
     {
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
-        $this->publishesMigrations(__DIR__ . '/../../database/migrations');
+        $this->publishes([
+            __DIR__ . '/../../database/migrations' => database_path('migrations'),
+        ], 'persona-migrations');
 
         $this->publishes([
             __DIR__ . '/../../config/persona.php' => config_path('persona.php'),

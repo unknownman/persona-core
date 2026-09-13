@@ -25,7 +25,7 @@ class Relationship extends Model
 
     public function relatedPersonable(): MorphTo
     {
-        return $this->morphTo('related_personable', 'related_personable_type', 'related_personable_id');
+        return $this->morphTo();
     }
 
     /**

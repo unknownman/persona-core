@@ -169,4 +169,112 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OTP Verification
+    |--------------------------------------------------------------------------
+    |
+    | Settings controlling one-time-password verification of contacts. The
+    | sms_channel is the notification channel used to deliver OTPs to phone
+    | numbers (e.g. 'vonage', 'twilio', 'sms'); no provider is hardcoded here.
+    |
+    */
+
+    'otp' => [
+        'length' => 6,
+        'ttl' => 600,
+        'max_attempts' => 5,
+        'sms_channel' => 'vonage',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Document Statuses
+    |--------------------------------------------------------------------------
+    |
+    | The vocabulary of statuses a Document can transition through. `initial`
+    | is the only status the DocumentManager will write on creation; `verified`
+    | and `rejected` are written by the verification flow. Host applications
+    | may rename these to match their own domain vocabulary.
+    |
+    */
+
+    'document_statuses' => [
+        'initial' => 'pending',
+        'verified' => 'verified',
+        'rejected' => 'rejected',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Contact Normalizers
+    |--------------------------------------------------------------------------
+    |
+    | Maps a contact type to the normalizer contract used to canonicalize its
+    | value before storage and uniqueness checks. Extend this map to add new
+    | contact types or to rewire an existing type to a stronger normalizer.
+    |
+    */
+
+    'normalizers' => [
+        'email' => Persona\Contracts\EmailNormalizerContract::class,
+        'phone' => Persona\Contracts\PhoneNormalizerContract::class,
+        'handle' => Persona\Contracts\HandleNormalizerContract::class,
+        'username' => Persona\Contracts\HandleNormalizerContract::class,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Manager Fillable Whitelists
+    |--------------------------------------------------------------------------
+    |
+    | The only columns each mutation manager may write through its raw
+    | $attributes (or $metadata) array. The morph pair, timestamps, derived
+    | *_hash columns and manager-owned invariants (e.g. `status`, `type`,
+    | `is_primary`) stay excluded so hosts can never mass-assign them.
+    |
+    */
+
+    'fillable' => [
+        'profile' => [
+            'first_name',
+            'last_name',
+            'middle_name',
+            'gender',
+            'birth_date',
+            'locale',
+            'timezone',
+        ],
+        'social_account' => [
+            'url',
+        ],
+        'address' => [
+            'country_code',
+            'state',
+            'city',
+            'zip_code',
+            'line_2',
+        ],
+        'physical_attribute' => [
+            'height',
+            'weight',
+            'eye_color',
+            'hair_color',
+            'blood_type',
+        ],
+        'legal_detail' => [
+            'nationality',
+            'marital_status',
+            'tax_id',
+        ],
+        'document_reserved_metadata' => [
+            'status',
+            'type',
+            'number',
+            'number_hash',
+            'personable_type',
+            'personable_id',
+        ],
+    ],
+
 ];

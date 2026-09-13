@@ -4,9 +4,11 @@ namespace Persona\Managers;
 
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Persona\Casts\LookupHash;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\DocumentAdded;
 use Persona\Events\DocumentStatusUpdated;
@@ -16,20 +18,6 @@ use Persona\Notifications\DocumentStatusNotification;
 
 class DocumentManager
 {
-    /**
-     * Columns that can never be supplied through $metadata. They are owned
-     * by the manager (or the database) and forcing them prevents callers
-     * from, e.g., planting a `verified` status during creation.
-     */
-    protected const RESERVED_METADATA = [
-        'status',
-        'type',
-        'number',
-        'number_hash',
-        'personable_type',
-        'personable_id',
-    ];
-
     public function __construct(
         protected ?Container $app = null,
     ) {
@@ -41,7 +29,8 @@ class DocumentManager
      *
      * The raw $number is passed to the model; the encrypted and lookup-hash
      * casts take care of storage and unique lookups respectively. Documents
-     * always start with `status = 'pending'` — callers can never dictate the
+     * always start with the configured initial status (see
+     * `persona.document_statuses.initial`) — callers can never dictate the
      * verification status through $metadata.
      *
      * @param  array<string, mixed>  $metadata  Extra columns, e.g.
@@ -59,16 +48,49 @@ class DocumentManager
         $this->assertAllowedType($type);
 
         $properties = array_merge(
-            array_except($metadata, self::RESERVED_METADATA),
+            Arr::except($metadata, config('persona.fillable.document_reserved_metadata', [])),
             [
                 'type' => $type,
                 'number' => $number,
                 'number_hash' => $number,
-                'status' => 'pending',
+                'status' => config('persona.document_statuses.initial', 'pending'),
             ],
         );
 
-        return DB::transaction(function () use ($personable, $properties) {
+        return DB::transaction(function () use ($personable, $properties, $type, $number) {
+            // The unique index is (personable_type, personable_id, type,
+            // country_code, number_hash) and it covers soft-deleted rows too.
+            // A previously-trashed twin must therefore be matched (and
+            // restored) instead of attempting a fresh insert.
+            $countryCode = $properties['country_code'] ?? null;
+
+            $existing = Document::withTrashed()
+                ->where('personable_type', $personable->getMorphClass())
+                ->where('personable_id', $personable->getKey())
+                ->where('type', $type)
+                ->where('number_hash', $this->lookupHash($number))
+                ->when(
+                    $countryCode === null,
+                    fn ($query) => $query->whereNull('country_code'),
+                    fn ($query) => $query->where('country_code', $countryCode),
+                )
+                ->first();
+
+            if ($existing) {
+                if (! $existing->trashed()) {
+                    throw new \InvalidArgumentException(
+                        'This document is already registered for this entity.'
+                    );
+                }
+
+                $existing->restore();
+                $existing->fill($properties)->save();
+
+                DocumentAdded::dispatch($existing);
+
+                return $existing;
+            }
+
             $document = new Document($properties);
 
             $document->personable_type = $personable->getMorphClass();
@@ -154,6 +176,18 @@ class DocumentManager
     }
 
     /**
+     * Compute the lookup hash for a raw document number.
+     *
+     * Uses the model's LookupHash cast as the single source of truth so
+     * the restore-on-duplicate query matches the hash that will actually
+     * be persisted.
+     */
+    protected function lookupHash(string $number): string
+    {
+        return (string) (new LookupHash())->set(new Document(), 'number_hash', $number, []);
+    }
+
+    /**
      * Update the status of a document, dispatching status events and notifications.
      */
     public function updateStatus(Document $document, string $status): void
@@ -179,7 +213,12 @@ class DocumentManager
         $provider = $this->app->make(DocumentVerificationProvider::class);
         $verified = $provider->verify($document);
 
-        $this->updateStatus($document, $verified ? 'verified' : 'rejected');
+        $this->updateStatus(
+            $document,
+            $verified
+                ? config('persona.document_statuses.verified', 'verified')
+                : config('persona.document_statuses.rejected', 'rejected')
+        );
 
         return $verified;
     }

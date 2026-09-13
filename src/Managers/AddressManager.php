@@ -9,20 +9,6 @@ use Persona\Models\Address;
 class AddressManager
 {
     /**
-     * The only columns a host application may supply through $attributes.
-     * The morph pair, `type`, `line_1` and `is_primary` are controlled by
-     * the manager's method signatures so the primary/type invariants can
-     * never be bypassed via raw mass-assignment.
-     */
-    protected const FILLABLE_PROPERTIES = [
-        'country_code',
-        'state',
-        'city',
-        'zip_code',
-        'line_2',
-    ];
-
-    /**
      * Add an address for a personable model.
      *
      * When $isPrimary is true the manager demotes every existing address of
@@ -122,11 +108,14 @@ class AddressManager
      * Reduce the incoming attributes to the explicit whitelist, protecting
      * internal columns from raw array mass-assignment.
      *
+     * The whitelist lives in `persona.fillable.address` so the host
+     * application can extend it without touching this manager.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     protected function map(array $attributes): array
     {
-        return array_intersect_key($attributes, array_flip(self::FILLABLE_PROPERTIES));
+        return array_intersect_key($attributes, array_flip(config('persona.fillable.address', [])));
     }
 }

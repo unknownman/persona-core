@@ -10,23 +10,6 @@ use Persona\Models\Profile;
 class ProfileManager
 {
     /**
-     * The only columns a host application may write through this manager.
-     *
-     * The morph pair (personable_type / personable_id) and the timestamps
-     * are owned by the manager and intentionally excluded so they can never
-     * be supplied through the raw $attributes array.
-     */
-    protected const FILLABLE_PROPERTIES = [
-        'first_name',
-        'last_name',
-        'middle_name',
-        'gender',
-        'birth_date',
-        'locale',
-        'timezone',
-    ];
-
-    /**
      * Update the existing Profile for the given personable model, or create
      * one when none exists yet. There is exactly one Profile per entity.
      *
@@ -66,11 +49,14 @@ class ProfileManager
      * Reduce the incoming attributes to the explicit whitelist, protecting
      * internal columns from raw array mass-assignment.
      *
+     * The whitelist lives in `persona.fillable.profile` so the host
+     * application can extend it without touching this manager.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     protected function map(array $attributes): array
     {
-        return array_intersect_key($attributes, array_flip(self::FILLABLE_PROPERTIES));
+        return array_intersect_key($attributes, array_flip(config('persona.fillable.profile', [])));
     }
 }

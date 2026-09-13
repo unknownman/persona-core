@@ -9,19 +9,6 @@ use Persona\Models\LegalDetail;
 class LegalDetailManager
 {
     /**
-     * The only columns a host application may write through this manager.
-     *
-     * `tax_id_hash` is deliberately absent: it is a LookupHash derived from
-     * `tax_id` and is always recomputed by this manager so hosts can never
-     * plant an arbitrary hash.
-     */
-    protected const FILLABLE_PROPERTIES = [
-        'nationality',
-        'marital_status',
-        'tax_id',
-    ];
-
-    /**
      * Update the existing LegalDetail record for the given personable model,
      * or create one when none exists yet. There is exactly one such record
      * per entity, so this acts as the sole mutation entry point.
@@ -66,11 +53,16 @@ class LegalDetailManager
      * Reduce the incoming attributes to the explicit whitelist, protecting
      * internal columns from raw array mass-assignment.
      *
+     * `tax_id_hash` stays excluded: it is a LookupHash derived from `tax_id`
+     * and is always recomputed by this manager so hosts can never plant an
+     * arbitrary hash. The whitelist lives in `persona.fillable.legal_detail`
+     * so the host application can extend it without touching this manager.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     protected function map(array $attributes): array
     {
-        return array_intersect_key($attributes, array_flip(self::FILLABLE_PROPERTIES));
+        return array_intersect_key($attributes, array_flip(config('persona.fillable.legal_detail', [])));
     }
 }

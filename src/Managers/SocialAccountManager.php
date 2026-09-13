@@ -9,15 +9,6 @@ use Persona\Models\SocialAccount;
 class SocialAccountManager
 {
     /**
-     * The only column a host application may supply through the raw method
-     * arguments. `platform`, `username` and `is_primary` are controlled by
-     * the method signature and internal invariants.
-     */
-    protected const FILLABLE_PROPERTIES = [
-        'url',
-    ];
-
-    /**
      * Attach a social account for a personable model.
      *
      * When $isPrimary is true the manager demotes every existing account on
@@ -133,11 +124,14 @@ class SocialAccountManager
      * Reduce the incoming attributes to the explicit whitelist, protecting
      * internal columns from raw array mass-assignment.
      *
+     * The whitelist lives in `persona.fillable.social_account` so the host
+     * application can extend it without touching this manager.
+     *
      * @param  array<string, mixed>  $attributes
      * @return array<string, mixed>
      */
     protected function map(array $attributes): array
     {
-        return array_intersect_key($attributes, array_flip(self::FILLABLE_PROPERTIES));
+        return array_intersect_key($attributes, array_flip(config('persona.fillable.social_account', [])));
     }
 }

@@ -9,9 +9,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Persona\Casts\LookupHash;
-use Persona\Contracts\EmailNormalizerContract;
-use Persona\Contracts\HandleNormalizerContract;
-use Persona\Contracts\PhoneNormalizerContract;
 use Persona\Events\ContactAdded;
 use Persona\Events\ContactVerified;
 use Persona\Models\Contact;
@@ -19,8 +16,6 @@ use Persona\Notifications\VerifyContactNotification;
 
 class ContactManager
 {
-    protected const int MAX_OTP_ATTEMPTS = 5;
-
     public function __construct(
         protected Container $app,
     ) {}
@@ -47,28 +42,45 @@ class ContactManager
         $value = $this->normalize($type, $value);
 
         return DB::transaction(function () use ($personable, $type, $value, $isPrimary, $isEmergency) {
-            // Soft-deleted rows are excluded by the model's default scope, so
-            // this only rejects an *active* duplicate.
-            $alreadyRegistered = Contact::query()
+            // The unique index is (personable_type, personable_id, type,
+            // value_hash) and it covers soft-deleted rows too. A previously
+            // trashed twin is matched via withTrashed() and restored instead
+            // of triggering an SQL integrity violation on insert.
+            $existing = Contact::withTrashed()
                 ->where('personable_type', $personable->getMorphClass())
                 ->where('personable_id', $personable->getKey())
                 ->where('type', $type)
                 ->where('value_hash', $this->lookupHash($value))
-                ->exists();
+                ->first();
 
-            if ($alreadyRegistered) {
-                throw new \InvalidArgumentException(
-                    'This contact is already registered for this entity.'
-                );
+            if ($existing) {
+                if (! $existing->trashed()) {
+                    throw new \InvalidArgumentException(
+                        'This contact is already registered for this entity.'
+                    );
+                }
+
+                if ($isPrimary) {
+                    $this->demoteOtherContacts($personable, $type);
+                }
+
+                $existing->restore();
+                $existing->fill([
+                    'value' => $value,
+                    'value_hash' => $value,
+                    'is_primary' => $isPrimary,
+                    'is_emergency' => $isEmergency,
+                    'is_verified' => false,
+                    'verified_at' => null,
+                ])->save();
+
+                ContactAdded::dispatch($existing);
+
+                return $existing;
             }
 
             if ($isPrimary) {
-                Contact::query()
-                    ->where('personable_type', $personable->getMorphClass())
-                    ->where('personable_id', $personable->getKey())
-                    ->where('type', $type)
-                    ->where('is_primary', true)
-                    ->update(['is_primary' => false]);
+                $this->demoteOtherContacts($personable, $type);
             }
 
             $contact = new Contact([
@@ -87,6 +99,20 @@ class ContactManager
 
             return $contact;
         });
+    }
+
+    /**
+     * Demote every other active contact of the same type for the personable,
+     * enforcing the single-primary invariant before a new primary is set.
+     */
+    protected function demoteOtherContacts(Model $personable, string $type): void
+    {
+        Contact::query()
+            ->where('personable_type', $personable->getMorphClass())
+            ->where('personable_id', $personable->getKey())
+            ->where('type', $type)
+            ->where('is_primary', true)
+            ->update(['is_primary' => false]);
     }
 
     /**
@@ -155,15 +181,16 @@ class ContactManager
      *
      * Email contacts are routed through the mail channel to the email itself.
      * Phone contacts are routed through a host-configured notification channel
-     * (see the `persona.otp_sms_channel` config key) so no third-party SMS
+     * (see the `persona.otp.sms_channel` config key) so no third-party SMS
      * provider is hardcoded here.
      *
      * @throws \RuntimeException  When no notification route can be determined for the contact type.
      */
     public function sendVerification(Contact $contact): string
     {
-        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $ttl = config('persona.otp_ttl', 600);
+        $length = (int) config('persona.otp.length', 6);
+        $otp = str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
+        $ttl = (int) config('persona.otp.ttl', 600);
 
         $contactKey = $contact->getKey();
 
@@ -181,7 +208,7 @@ class ContactManager
         if ($contact->type === 'email') {
             Notification::route('mail', $contact->value)->notify($notification);
         } elseif ($contact->type === 'phone') {
-            $channel = (string) config('persona.otp_sms_channel', 'vonage');
+            $channel = (string) config('persona.otp.sms_channel', 'vonage');
 
             if (! $notification->supportsChannel($channel)) {
                 throw new \RuntimeException(
@@ -205,16 +232,17 @@ class ContactManager
      * Verify an OTP against the cache and mark the contact as verified.
      *
      * The comparison is timing-safe. Failed attempts are tracked in the cache
-     * and the OTP is locked after {@see self::MAX_OTP_ATTEMPTS} consecutive
-     * failures.
+     * and the OTP is locked after the `persona.otp.max_attempts` configured
+     * number of consecutive failures.
      */
     public function verify(Contact $contact, string $otp): bool
     {
         $contactKey = $contact->getKey();
         $key = "persona:otp:{$contactKey}";
         $attemptsKey = "persona:otp_attempts:{$contactKey}";
+        $maxAttempts = (int) config('persona.otp.max_attempts', 5);
 
-        if ((int) Cache::get($attemptsKey, 0) > self::MAX_OTP_ATTEMPTS) {
+        if ((int) Cache::get($attemptsKey, 0) > $maxAttempts) {
             Cache::forget($key);
 
             return false;
@@ -223,7 +251,7 @@ class ContactManager
         $cachedOtp = Cache::get($key);
 
         if ($cachedOtp === null || ! hash_equals((string) $cachedOtp, (string) $otp)) {
-            if ((int) Cache::increment($attemptsKey) > self::MAX_OTP_ATTEMPTS) {
+            if ((int) Cache::increment($attemptsKey) > $maxAttempts) {
                 Cache::forget($key);
             }
 
@@ -256,15 +284,14 @@ class ContactManager
 
     /**
      * Normalize the given value through the bound normalizer for its type.
+     *
+     * The contract for each type is resolved from the shared
+     * `persona.normalizers` config map, making the type vocabulary
+     * extensible without editing this manager.
      */
     protected function normalize(string $type, string $value): string
     {
-        $contract = match ($type) {
-            'email' => EmailNormalizerContract::class,
-            'phone' => PhoneNormalizerContract::class,
-            'handle', 'username' => HandleNormalizerContract::class,
-            default => null,
-        };
+        $contract = config("persona.normalizers.{$type}");
 
         if ($contract !== null && $this->app->bound($contract)) {
             return $this->app->make($contract)->normalize($value);
