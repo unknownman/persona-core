@@ -1,0 +1,42 @@
+{
+    "name": "laravel-persona/core",
+    "version": "1.4.0",
+    "description": "Persona - a headless data layer for person-related data using polymorphic relations.",
+    "keywords": ["persona", "person", "profile", "contact", "address", "laravel", "headless"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/notifications": "^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Persona\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Persona\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Persona\\Providers\\PersonaServiceProvider"
+            ],
+            "aliases": {
+                "Persona": "Persona\\Facades\\Persona"
+            }
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
