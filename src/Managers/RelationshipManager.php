@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Persona\Events\RelationshipCreated;
+use Persona\Events\RelationshipRemoved;
 use Persona\Models\Relationship;
 
 class RelationshipManager
@@ -131,6 +132,10 @@ class RelationshipManager
             ->where('related_personable_id', $relatedPersonable->getKey())
             ->where('type', $type)
             ->delete();
+
+        if ($deleted > 0) {
+            RelationshipRemoved::dispatch($type, $source, $target);
+        }
 
         return $deleted > 0;
     }

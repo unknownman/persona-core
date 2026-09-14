@@ -2,6 +2,8 @@
 
 namespace Persona\Tests\Feature\Managers;
 
+use Illuminate\Support\Facades\Event;
+use Persona\Events\RelationshipRemoved;
 use Persona\Models\Relationship;
 use Persona\Persona;
 use Persona\Tests\TestCase;
@@ -145,5 +147,40 @@ class RelationshipManagerTest extends TestCase
 
         $this->assertCount(1, $relationships);
         $this->assertEquals('friend', $relationships->first()->type);
+    }
+
+    // -------------------------------------------------------------------------
+    // Domain events
+    // -------------------------------------------------------------------------
+
+    public function test_unlink_dispatches_relationship_removed_once(): void
+    {
+        Event::fake();
+
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        Persona::for($userA)->linkTo($userB, 'friend');
+        Persona::for($userA)->unlinkFrom($userB, 'friend');
+
+        Event::assertDispatchedTimes(RelationshipRemoved::class, 1);
+        Event::assertDispatched(RelationshipRemoved::class, function (RelationshipRemoved $event) use ($userA, $userB) {
+            return $event->type === 'friend'
+                && $event->source->is($userA)
+                && $event->target->is($userB);
+        });
+    }
+
+    public function test_unlink_when_not_linked_does_not_dispatch_relationship_removed(): void
+    {
+        Event::fake();
+
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        $deleted = Persona::for($userA)->unlinkFrom($userB, 'friend');
+
+        $this->assertFalse($deleted);
+        Event::assertNotDispatched(RelationshipRemoved::class);
     }
 }

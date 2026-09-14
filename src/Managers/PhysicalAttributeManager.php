@@ -4,6 +4,7 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Persona\Events\PhysicalAttributeUpdated;
 use Persona\Models\PhysicalAttribute;
 
 class PhysicalAttributeManager
@@ -37,6 +38,10 @@ class PhysicalAttributeManager
             }
 
             $physicalAttribute->save();
+
+            // Dispatched inside the transaction, but `ShouldDispatchAfterCommit`
+            // defers the actual dispatch until the transaction commits.
+            PhysicalAttributeUpdated::dispatch($physicalAttribute);
 
             return $physicalAttribute;
         });

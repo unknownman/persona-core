@@ -4,6 +4,7 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Persona\Events\LegalDetailUpdated;
 use Persona\Models\LegalDetail;
 
 class LegalDetailManager
@@ -44,6 +45,10 @@ class LegalDetailManager
             }
 
             $legalDetail->save();
+
+            // Dispatched inside the transaction, but `ShouldDispatchAfterCommit`
+            // defers the actual dispatch until the transaction commits.
+            LegalDetailUpdated::dispatch($legalDetail);
 
             return $legalDetail;
         });

@@ -4,6 +4,9 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Persona\Events\AddressAdded;
+use Persona\Events\AddressMadePrimary;
+use Persona\Events\AddressRemoved;
 use Persona\Models\Address;
 
 class AddressManager
@@ -38,6 +41,10 @@ class AddressManager
             $address->personable_id = $personable->getKey();
             $address->save();
 
+            // Dispatched inside the transaction, but `ShouldDispatchAfterCommit`
+            // defers the actual dispatch until the transaction commits.
+            AddressAdded::dispatch($address);
+
             return $address;
         });
     }
@@ -56,6 +63,8 @@ class AddressManager
             $this->demoteSameType($personable, $address->type);
 
             $address->update(['is_primary' => true]);
+
+            AddressMadePrimary::dispatch($address);
         });
     }
 
@@ -68,7 +77,13 @@ class AddressManager
     {
         $this->assertOwnership($personable, $address);
 
-        return (bool) $address->delete();
+        $deleted = (bool) $address->delete();
+
+        if ($deleted) {
+            AddressRemoved::dispatch($address);
+        }
+
+        return $deleted;
     }
 
     /**

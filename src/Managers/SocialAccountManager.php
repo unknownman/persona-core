@@ -4,6 +4,9 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Persona\Events\SocialAccountConnected;
+use Persona\Events\SocialAccountMadePrimary;
+use Persona\Events\SocialAccountRemoved;
 use Persona\Models\SocialAccount;
 
 class SocialAccountManager
@@ -40,6 +43,10 @@ class SocialAccountManager
             $account->personable_id = $personable->getKey();
             $account->save();
 
+            // Dispatched inside the transaction, but `ShouldDispatchAfterCommit`
+            // defers the actual dispatch until the transaction commits.
+            SocialAccountConnected::dispatch($account);
+
             return $account;
         });
     }
@@ -58,6 +65,8 @@ class SocialAccountManager
             $this->demoteSamePlatform($personable, (string) $account->platform);
 
             $account->update(['is_primary' => true]);
+
+            SocialAccountMadePrimary::dispatch($account);
         });
     }
 
@@ -70,7 +79,13 @@ class SocialAccountManager
     {
         $this->assertOwnership($personable, $account);
 
-        return (bool) $account->delete();
+        $deleted = (bool) $account->delete();
+
+        if ($deleted) {
+            SocialAccountRemoved::dispatch($account);
+        }
+
+        return $deleted;
     }
 
     /**
