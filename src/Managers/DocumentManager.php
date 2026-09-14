@@ -8,13 +8,13 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
-use Persona\Casts\LookupHash;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\DocumentAdded;
 use Persona\Events\DocumentStatusUpdated;
 use Persona\Models\Document;
 use Persona\Models\DocumentFile;
 use Persona\Notifications\DocumentStatusNotification;
+use Persona\Support\PersonaHasher;
 
 class DocumentManager
 {
@@ -178,13 +178,12 @@ class DocumentManager
     /**
      * Compute the lookup hash for a raw document number.
      *
-     * Uses the model's LookupHash cast as the single source of truth so
-     * the restore-on-duplicate query matches the hash that will actually
-     * be persisted.
+     * Delegates to PersonaHasher so the restore-on-duplicate query matches
+     * the hash that will actually be persisted by the cast.
      */
     protected function lookupHash(string $number): string
     {
-        return (string) (new LookupHash())->set(new Document(), 'number_hash', $number, []);
+        return PersonaHasher::hash($number);
     }
 
     /**

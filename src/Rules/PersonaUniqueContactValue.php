@@ -7,7 +7,7 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Persona\Models\Contact;
-use RuntimeException;
+use Persona\Support\PersonaHasher;
 
 class PersonaUniqueContactValue implements ValidationRule
 {
@@ -34,17 +34,9 @@ class PersonaUniqueContactValue implements ValidationRule
             return;
         }
 
-        $hashKey = config('persona.hash_key') ?: config('app.key');
-
-        if (is_null($hashKey) || $hashKey === '') {
-            throw new RuntimeException(
-                'No application or persona hash key has been specified. Please ensure APP_KEY or PERSONA_HASH_KEY is set in your .env file.'
-            );
-        }
-
         $normalizedValue = $this->normalize($this->type, $value);
 
-        $hash = hash_hmac('sha256', $normalizedValue, $hashKey);
+        $hash = PersonaHasher::hash($normalizedValue);
 
         $query = Contact::query()
             ->where('type', $this->type)

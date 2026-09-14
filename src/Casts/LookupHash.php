@@ -4,12 +4,15 @@ namespace Persona\Casts;
 
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
-use RuntimeException;
+use Persona\Support\PersonaHasher;
 
 class LookupHash implements CastsAttributes
 {
     /**
      * Transform the given value into the storage format.
+     *
+     * Delegates to PersonaHasher — the single source of truth for the
+     * hashing algorithm.
      *
      * @return string|null
      */
@@ -19,15 +22,7 @@ class LookupHash implements CastsAttributes
             return null;
         }
 
-        $hashKey = config('persona.hash_key') ?: config('app.key');
-
-        if (is_null($hashKey) || $hashKey === '') {
-            throw new RuntimeException(
-                'No application or persona hash key has been specified. Please ensure APP_KEY or PERSONA_HASH_KEY is set in your .env file.'
-            );
-        }
-
-        return hash_hmac('sha256', (string) $value, $hashKey);
+        return PersonaHasher::hash((string) $value);
     }
 
     /**

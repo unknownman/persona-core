@@ -8,11 +8,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Persona\Casts\LookupHash;
 use Persona\Events\ContactAdded;
 use Persona\Events\ContactVerified;
 use Persona\Models\Contact;
 use Persona\Notifications\VerifyContactNotification;
+use Persona\Support\PersonaHasher;
 
 class ContactManager
 {
@@ -274,12 +274,12 @@ class ContactManager
     /**
      * Compute the lookup hash for a raw contact value.
      *
-     * Uses the model's LookupHash cast as the single source of truth so the
-     * deduplication query matches the hash that will actually be persisted.
+     * Delegates to PersonaHasher so the deduplication query matches the hash
+     * that will actually be persisted by the cast.
      */
     protected function lookupHash(string $value): string
     {
-        return (string) (new LookupHash())->set(new Contact(), 'value_hash', $value, []);
+        return PersonaHasher::hash($value);
     }
 
     /**
