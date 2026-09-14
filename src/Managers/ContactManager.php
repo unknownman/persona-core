@@ -53,7 +53,7 @@ class ContactManager
             if ($existing) {
                 if (! $existing->trashed()) {
                     throw new \InvalidArgumentException(
-                        'This contact is already registered for this entity.'
+                        __('This contact is already registered for this entity.')
                     );
                 }
 
@@ -212,7 +212,7 @@ class ContactManager
 
             if (! $notification->supportsChannel($channel)) {
                 throw new \RuntimeException(
-                    'Unable to determine notification route for contact type: ' . $contact->type
+                    __('Unable to determine notification route for contact type: ' . $contact->type)
                 );
             }
 
@@ -221,7 +221,7 @@ class ContactManager
             Notification::route($channel, $contact->value)->notify($notification);
         } else {
             throw new \RuntimeException(
-                'Unable to determine notification route for contact type: ' . $contact->type
+                __('Unable to determine notification route for contact type: ' . $contact->type)
             );
         }
 
@@ -302,7 +302,7 @@ class ContactManager
             || (string) $contact->personable_id !== (string) $personable->getKey()
         ) {
             throw new \InvalidArgumentException(
-                'The given contact does not belong to this entity.'
+                __('The given contact does not belong to this entity.')
             );
         }
     }

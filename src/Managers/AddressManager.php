@@ -114,7 +114,7 @@ class AddressManager
             || (string) $address->personable_id !== (string) $personable->getKey()
         ) {
             throw new \InvalidArgumentException(
-                'The given address does not belong to this entity.'
+                __('The given address does not belong to this entity.')
             );
         }
     }

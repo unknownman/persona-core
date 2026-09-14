@@ -110,7 +110,7 @@ class SocialAccountManager
     {
         if (! in_array($platform, config('persona.social_platforms', []), true)) {
             throw new \InvalidArgumentException(
-                "The social platform '{$platform}' is not allowed by the persona configuration."
+                __("The social platform '{$platform}' is not allowed by the persona configuration.")
             );
         }
     }
@@ -130,7 +130,7 @@ class SocialAccountManager
             || (string) $account->personable_id !== (string) $personable->getKey()
         ) {
             throw new \InvalidArgumentException(
-                'The given social account does not belong to this entity.'
+                __('The given social account does not belong to this entity.')
             );
         }
     }

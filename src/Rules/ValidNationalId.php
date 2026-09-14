@@ -17,7 +17,7 @@ class ValidNationalId implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || ! preg_match('/^[A-Za-z0-9]{4,32}$/', $value)) {
-            $fail('The :attribute must be a valid national ID.');
+            $fail(__('The :attribute must be a valid national ID.'));
         }
     }
 }

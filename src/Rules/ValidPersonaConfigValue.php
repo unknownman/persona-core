@@ -29,7 +29,7 @@ class ValidPersonaConfigValue implements ValidationRule
             : array_keys($allowed);
 
         if (! in_array($value, $allowedValues, true)) {
-            $fail("The :attribute must be one of the values defined in {$this->configKey}.");
+            $fail(__('The :attribute must be one of the values defined in :configKey.', ['configKey' => $this->configKey]));
         }
     }
 }

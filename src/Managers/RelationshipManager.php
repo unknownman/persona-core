@@ -36,7 +36,7 @@ class RelationshipManager
             $source->getMorphClass() === $target->getMorphClass()
             && (string) $source->getKey() === (string) $target->getKey()
         )) {
-            throw new \InvalidArgumentException('A personable entity cannot be linked to itself.');
+            throw new \InvalidArgumentException(__('A personable entity cannot be linked to itself.'));
         }
 
         [$personable, $relatedPersonable] = $this->canonicalize($source, $target, $type);
@@ -83,7 +83,7 @@ class RelationshipManager
 
         if (! in_array($type, $directed, true) && ! in_array($type, $symmetric, true)) {
             throw new \InvalidArgumentException(
-                "The relationship type '{$type}' is not allowed by the persona configuration."
+                __("The relationship type '{$type}' is not allowed by the persona configuration.")
             );
         }
     }

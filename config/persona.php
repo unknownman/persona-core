@@ -30,6 +30,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Data Retention (Pruning)
+    |--------------------------------------------------------------------------
+    |
+    | The number of days soft-deleted Contacts and Documents should be retained
+    | in the database before being permanently removed by Laravel's prune command.
+    |
+    */
+
+    'retention' => [
+        'soft_deleted_days' => 30,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Tables
     |--------------------------------------------------------------------------
     |

@@ -79,7 +79,7 @@ class DocumentManager
             if ($existing) {
                 if (! $existing->trashed()) {
                     throw new \InvalidArgumentException(
-                        'This document is already registered for this entity.'
+                        __('This document is already registered for this entity.')
                     );
                 }
 
@@ -161,7 +161,7 @@ class DocumentManager
     {
         if (! in_array($type, config('persona.document_types', []), true)) {
             throw new \InvalidArgumentException(
-                "The document type '{$type}' is not allowed by the persona configuration."
+                __("The document type '{$type}' is not allowed by the persona configuration.")
             );
         }
     }
@@ -181,7 +181,7 @@ class DocumentManager
             || (string) $document->personable_id !== (string) $personable->getKey()
         ) {
             throw new \InvalidArgumentException(
-                'The given document does not belong to this entity.'
+                __('The given document does not belong to this entity.')
             );
         }
     }

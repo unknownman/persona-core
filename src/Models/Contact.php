@@ -5,6 +5,7 @@ namespace Persona\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Persona\Casts\ConditionalEncrypted;
@@ -13,7 +14,7 @@ use Persona\Database\Factories\ContactFactory;
 
 class Contact extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, Prunable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -45,6 +46,13 @@ class Contact extends Model
     public function personable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function prunable(): Builder
+    {
+        $days = config('persona.retention.soft_deleted_days', 30);
+
+        return static::where('deleted_at', '<=', now()->subDays($days));
     }
 
     public function scopePrimary(Builder $query): Builder

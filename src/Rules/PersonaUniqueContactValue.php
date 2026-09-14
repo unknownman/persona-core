@@ -66,7 +66,7 @@ class PersonaUniqueContactValue implements ValidationRule
         }
 
         if ($query->exists()) {
-            $fail('The contact value is already taken.');
+            $fail(__('The contact value is already taken.'));
         }
     }
 
