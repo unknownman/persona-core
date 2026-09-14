@@ -52,6 +52,64 @@ final class ScopedPersonaManager
     }
 
     // -------------------------------------------------------------------------
+    // Footprint aggregation
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolve the full Persona footprint for the scoped model.
+     *
+     * Returns a single, well-typed array with every slice a profile overview
+     * needs. Models using the `HasPersona` trait are hydrated through their
+     * eager-loaded relations (one round-trip via `loadPersonaDetails()`);
+     * plain models fall back to direct morph-pair queries keyed by
+     * `personable_type` / `personable_id`, so no trait is required either way.
+     *
+     * @return array{
+     *     profile: \Persona\Models\Profile|null,
+     *     contacts: \Illuminate\Database\Eloquent\Collection,
+     *     addresses: \Illuminate\Database\Eloquent\Collection,
+     *     documents: \Illuminate\Database\Eloquent\Collection,
+     *     socialAccounts: \Illuminate\Database\Eloquent\Collection,
+     *     relationships: \Illuminate\Database\Eloquent\Collection,
+     *     physicalAttribute: \Persona\Models\PhysicalAttribute|null,
+     *     legalDetail: \Persona\Models\LegalDetail|null,
+     * }
+     */
+    public function getFootprint(): array
+    {
+        if (method_exists($this->personable, 'loadPersonaDetails')) {
+            $this->personable->loadPersonaDetails();
+
+            return [
+                'profile'           => $this->personable->profile,
+                'contacts'          => $this->personable->contacts,
+                'addresses'         => $this->personable->addresses,
+                'documents'         => $this->personable->documents,
+                'socialAccounts'    => $this->personable->socialAccounts,
+                'relationships'     => $this->personable->loadPersonaRelationships(),
+                'physicalAttribute' => $this->personable->physicalAttribute,
+                'legalDetail'       => $this->personable->legalDetail,
+            ];
+        }
+
+        $morphType = $this->personable->getMorphClass();
+        $morphId   = $this->personable->getKey();
+
+        return [
+            'profile'           => Profile::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
+            'contacts'          => Contact::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
+            'addresses'         => Address::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
+            'documents'         => Document::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
+            'socialAccounts'    => SocialAccount::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
+            'relationships'     => Relationship::forEntity($this->personable)
+                ->with(['personable', 'relatedPersonable'])
+                ->get(),
+            'physicalAttribute' => PhysicalAttribute::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
+            'legalDetail'       => LegalDetail::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
+        ];
+    }
+
+    // -------------------------------------------------------------------------
     // Contact mutations
     // -------------------------------------------------------------------------
 
