@@ -2,14 +2,23 @@
 
 namespace Persona\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
+use Persona\Database\Factories\LegalDetailFactory;
 
 class LegalDetail extends Model
 {
+    use HasFactory;
+
     protected $guarded = [];
+
+    protected static function newFactory(): LegalDetailFactory
+    {
+        return LegalDetailFactory::new();
+    }
 
     /**
      * Resolve the table name from the package configuration.

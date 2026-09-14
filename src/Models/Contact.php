@@ -3,17 +3,24 @@
 namespace Persona\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
+use Persona\Database\Factories\ContactFactory;
 
 class Contact extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $guarded = [];
+
+    protected static function newFactory(): ContactFactory
+    {
+        return ContactFactory::new();
+    }
 
     /**
      * Resolve the table name from the package configuration.

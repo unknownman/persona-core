@@ -2,13 +2,22 @@
 
 namespace Persona\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Casts\ConditionalEncrypted;
+use Persona\Database\Factories\ProfileFactory;
 
 class Profile extends Model
 {
+    use HasFactory;
+
     protected $guarded = [];
+
+    protected static function newFactory(): ProfileFactory
+    {
+        return ProfileFactory::new();
+    }
 
     /**
      * Resolve the table name from the package configuration.
