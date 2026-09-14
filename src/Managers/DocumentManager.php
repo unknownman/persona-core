@@ -4,7 +4,6 @@ namespace Persona\Managers;
 
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -49,7 +48,7 @@ class DocumentManager
         $this->assertAllowedType($type);
 
         $properties = array_merge(
-            Arr::except($metadata, config('persona.fillable.document_reserved_metadata', [])),
+            $this->map($metadata),
             [
                 'type' => $type,
                 'number' => $number,
@@ -196,6 +195,21 @@ class DocumentManager
     protected function lookupHash(string $number): string
     {
         return PersonaHasher::hash($number);
+    }
+
+    /**
+     * Reduce the incoming metadata to the explicit whitelist, protecting
+     * internal columns from raw array mass-assignment.
+     *
+     * The whitelist lives in `persona.fillable.document` so the host
+     * application can extend it without touching this manager.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    protected function map(array $metadata): array
+    {
+        return array_intersect_key($metadata, array_flip(config('persona.fillable.document', [])));
     }
 
     /**

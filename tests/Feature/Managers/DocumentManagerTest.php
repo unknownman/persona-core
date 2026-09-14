@@ -42,4 +42,40 @@ class DocumentManagerTest extends TestCase
         $this->assertSame('local', $file->disk);
         $this->assertSame('front', $file->side);
     }
+
+    // -------------------------------------------------------------------------
+    // Metadata whitelist
+    // -------------------------------------------------------------------------
+
+    public function test_unknown_metadata_key_is_not_mass_assigned(): void
+    {
+        $user = $this->createUser();
+
+        $document = Persona::for($user)->addDocument(
+            'passport',
+            'X9999999',
+            ['country_code' => 'US', 'is_flagged' => true],
+        );
+
+        $this->assertSame('US', $document->fresh()->country_code);
+        $this->assertSame('pending', $document->fresh()->status);
+        $this->assertArrayNotHasKey('is_flagged', $document->fresh()->getAttributes());
+    }
+
+    public function test_country_code_is_set_through_metadata(): void
+    {
+        $user = $this->createUser();
+
+        $document = Persona::for($user)->addDocument(
+            'passport',
+            'Z8888888',
+            ['country_code' => 'DE', 'issued_at' => '2024-01-15', 'expires_at' => '2034-01-15'],
+        );
+
+        $fresh = $document->fresh();
+
+        $this->assertSame('DE', $fresh->country_code);
+        $this->assertEquals('2024-01-15', $fresh->issued_at->format('Y-m-d'));
+        $this->assertEquals('2034-01-15', $fresh->expires_at->format('Y-m-d'));
+    }
 }

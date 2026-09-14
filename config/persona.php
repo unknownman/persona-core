@@ -267,13 +267,10 @@ return [
             'marital_status',
             'tax_id',
         ],
-        'document_reserved_metadata' => [
-            'status',
-            'type',
-            'number',
-            'number_hash',
-            'personable_type',
-            'personable_id',
+        'document' => [
+            'country_code',
+            'issued_at',
+            'expires_at',
         ],
     ],
 
