@@ -44,8 +44,8 @@ class PersonaServiceProvider extends ServiceProvider
         $this->app->singleton(DocumentVerificationProvider::class, NullDocumentVerificationProvider::class);
         $this->app->singleton(SocialActivityResolverContract::class, NullSocialActivityResolver::class);
 
-        $this->app->singleton(ContactManager::class, function ($app) {
-            return new ContactManager($app);
+        $this->app->singleton(ContactManager::class, function () {
+            return new ContactManager();
         });
 
         $this->app->singleton(DocumentManager::class, function () {

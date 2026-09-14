@@ -2,7 +2,6 @@
 
 namespace Persona\Managers;
 
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -13,12 +12,10 @@ use Persona\Events\ContactVerified;
 use Persona\Models\Contact;
 use Persona\Notifications\VerifyContactNotification;
 use Persona\Support\PersonaHasher;
+use Persona\Support\PersonaNormalizer;
 
 class ContactManager
 {
-    public function __construct(
-        protected Container $app,
-    ) {}
 
     /**
      * Add a contact value for a personable model.
@@ -39,7 +36,7 @@ class ContactManager
         bool $isPrimary = false,
         bool $isEmergency = false,
     ): Contact {
-        $value = $this->normalize($type, $value);
+        $value = PersonaNormalizer::resolve($type, $value);
 
         return DB::transaction(function () use ($personable, $type, $value, $isPrimary, $isEmergency) {
             // The unique index is (personable_type, personable_id, type,
@@ -161,7 +158,7 @@ class ContactManager
     {
         $this->assertOwnership($personable, $contact);
 
-        $newValue = $this->normalize((string) $contact->type, $newValue);
+        $newValue = PersonaNormalizer::resolve((string) $contact->type, $newValue);
 
         DB::transaction(function () use ($contact, $newValue) {
             $contact->update([
@@ -280,24 +277,6 @@ class ContactManager
     protected function lookupHash(string $value): string
     {
         return PersonaHasher::hash($value);
-    }
-
-    /**
-     * Normalize the given value through the bound normalizer for its type.
-     *
-     * The contract for each type is resolved from the shared
-     * `persona.normalizers` config map, making the type vocabulary
-     * extensible without editing this manager.
-     */
-    protected function normalize(string $type, string $value): string
-    {
-        $contract = config("persona.normalizers.{$type}");
-
-        if ($contract !== null && $this->app->bound($contract)) {
-            return $this->app->make($contract)->normalize($value);
-        }
-
-        return $value;
     }
 
     /**

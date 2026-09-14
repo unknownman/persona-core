@@ -3,11 +3,11 @@
 namespace Persona\Rules;
 
 use Closure;
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Model;
 use Persona\Models\Contact;
 use Persona\Support\PersonaHasher;
+use Persona\Support\PersonaNormalizer;
 
 class PersonaUniqueContactValue implements ValidationRule
 {
@@ -15,17 +15,32 @@ class PersonaUniqueContactValue implements ValidationRule
      * Create a new rule instance.
      *
      * @param  string  $type  The contact type, e.g. 'email' or 'phone'.
-     * @param  int|string|null  $ignorePersonableId  Optionally ignore an owner
-     *                                               (e.g. the current model)
-     *                                               during uniqueness checks.
-     * @param  \Illuminate\Contracts\Container\Container|null  $container  Optional container instance.
+     * @param  Model|int|string  $personable  The owner the uniqueness check is
+     *                                        scoped to. Pass a Model to derive
+     *                                        both parts of the morph pair, or a
+     *                                        personable id together with
+     *                                        $personableType.
+     * @param  int|string|null  $ignorePersonableId  Optionally exclude a single
+     *                                        owner id from the check. This is
+     *                                        meant ONLY for the update scenario,
+     *                                        where the row being edited belongs
+     *                                        to the current owner and must not
+     *                                        count against itself.
+     * @param  string|null  $personableType  The morph type (class or alias) used
+     *                                       when $personable is given as a bare
+     *                                       id rather than a Model.
      */
     public function __construct(
         protected string $type,
+        protected Model|int|string $personable,
         protected int|string|null $ignorePersonableId = null,
-        protected ?Container $container = null,
+        protected ?string $personableType = null,
     ) {
-        $this->container ??= \Illuminate\Container\Container::getInstance();
+        if (! $this->personable instanceof Model && $this->personableType === null) {
+            throw new \InvalidArgumentException(
+                'A personable type must be provided when PersonaUniqueContactValue is given a non-model personable.'
+            );
+        }
     }
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
@@ -34,11 +49,15 @@ class PersonaUniqueContactValue implements ValidationRule
             return;
         }
 
-        $normalizedValue = $this->normalize($this->type, $value);
+        $normalizedValue = PersonaNormalizer::resolve($this->type, $value);
 
         $hash = PersonaHasher::hash($normalizedValue);
 
+        [$personableType, $personableId] = $this->personableScope();
+
         $query = Contact::query()
+            ->where('personable_type', $personableType)
+            ->where('personable_id', $personableId)
             ->where('type', $this->type)
             ->where('value_hash', $hash);
 
@@ -52,22 +71,19 @@ class PersonaUniqueContactValue implements ValidationRule
     }
 
     /**
-     * Normalize the given value through the bound normalizer for its type.
+     * Resolve the morph pair (type, id) the uniqueness check is scoped to.
      *
-     * The contract for each type is resolved from the shared
-     * `persona.normalizers` config map — the same map ContactManager reads —
-     * so uniqueness checks always canonicalize values identically to storage.
+     * A Model derives both from itself; a bare id must be accompanied by an
+     * explicit personable type, which is enforced at construction time.
+     *
+     * @return array{string, int|string}
      */
-    protected function normalize(string $type, string $value): string
+    protected function personableScope(): array
     {
-        $contract = config("persona.normalizers.{$type}");
-
-        $container = $this->container ?? \Illuminate\Container\Container::getInstance();
-
-        if ($contract !== null && $container && $container->bound($contract)) {
-            return $container->make($contract)->normalize($value);
+        if ($this->personable instanceof Model) {
+            return [$this->personable->getMorphClass(), $this->personable->getKey()];
         }
 
-        return $value;
+        return [$this->personableType, $this->personable];
     }
 }
