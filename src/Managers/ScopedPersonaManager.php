@@ -184,7 +184,7 @@ final class ScopedPersonaManager
         string $disk = 'local',
         ?string $side = null,
     ): DocumentFile {
-        return $this->root->documents()->attachFile($document, $filePath, $disk, $side);
+        return $this->root->documents()->attachFile($this->personable, $document, $filePath, $disk, $side);
     }
 
     // -------------------------------------------------------------------------

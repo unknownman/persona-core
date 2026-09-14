@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\DocumentAdded;
 use Persona\Events\DocumentStatusUpdated;
+use Persona\Events\DocumentVerificationRequested;
 use Persona\Models\Document;
 use Persona\Models\DocumentFile;
 use Persona\Notifications\DocumentStatusNotification;
@@ -106,12 +107,23 @@ class DocumentManager
     /**
      * Associate a stored file with a document.
      *
-     * @param  string      $filePath  Path of the physical file on the given disk.
-     * @param  string      $disk      Storage disk the file lives on.
-     * @param  string|null $side      e.g. 'front' / 'back' for identity documents.
+     * @param  Model        $personable  The entity that owns the document.
+     * @param  Document     $document    A document that belongs to $personable.
+     * @param  string       $filePath    Path of the physical file on the given disk.
+     * @param  string       $disk        Storage disk the file lives on.
+     * @param  string|null  $side        e.g. 'front' / 'back' for identity documents.
+     *
+     * @throws \InvalidArgumentException  When the document does not belong to the given entity.
      */
-    public function attachFile(Document $document, string $filePath, string $disk = 'local', ?string $side = null): DocumentFile
-    {
+    public function attachFile(
+        Model $personable,
+        Document $document,
+        string $filePath,
+        string $disk = 'local',
+        ?string $side = null,
+    ): DocumentFile {
+        $this->assertOwnership($personable, $document);
+
         $file = new DocumentFile([
             'file_path' => $filePath,
             'disk' => $disk,
@@ -188,9 +200,14 @@ class DocumentManager
 
     /**
      * Update the status of a document, dispatching status events and notifications.
+     *
+     * This method does not perform authorization. Hosts MUST guard access to
+     * this method themselves (e.g. via a Policy) before calling it.
      */
     public function updateStatus(Document $document, string $status): void
     {
+        DocumentVerificationRequested::dispatch($document, $status);
+
         $oldStatus = (string) $document->status;
         $document->update(['status' => $status]);
 
@@ -206,9 +223,14 @@ class DocumentManager
 
     /**
      * Verify a document against the bound DocumentVerificationProvider contract.
+     *
+     * This method does not perform authorization. Hosts MUST guard access to
+     * this method themselves (e.g. via a Policy) before calling it.
      */
     public function verify(Document $document): bool
     {
+        DocumentVerificationRequested::dispatch($document);
+
         $provider = $this->app->make(DocumentVerificationProvider::class);
         $verified = $provider->verify($document);
 
