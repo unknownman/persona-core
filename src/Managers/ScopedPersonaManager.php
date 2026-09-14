@@ -175,20 +175,24 @@ final class ScopedPersonaManager
      *
      * The OTP is routed strictly to the contact value itself (email or phone),
      * never to the owning profile.
+     *
+     * @throws \InvalidArgumentException  If the contact does not belong to this entity.
      */
     public function sendContactVerification(Contact $contact): string
     {
-        return $this->root->contacts()->sendVerification($contact);
+        return $this->root->contacts()->sendVerification($this->personable, $contact);
     }
 
     /**
      * Verify an OTP code for the given contact.
      *
      * Uses a timing-safe comparison and is throttled after five failed attempts.
+     *
+     * @throws \InvalidArgumentException  If the contact does not belong to this entity.
      */
     public function verifyContact(Contact $contact, string $otp): bool
     {
-        return $this->root->contacts()->verify($contact, $otp);
+        return $this->root->contacts()->verify($this->personable, $contact, $otp);
     }
 
     // -------------------------------------------------------------------------

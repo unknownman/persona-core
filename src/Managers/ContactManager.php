@@ -181,10 +181,13 @@ class ContactManager
      * (see the `persona.otp.sms_channel` config key) so no third-party SMS
      * provider is hardcoded here.
      *
+     * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
      * @throws \RuntimeException  When no notification route can be determined for the contact type.
      */
-    public function sendVerification(Contact $contact): string
+    public function sendVerification(Model $personable, Contact $contact): string
     {
+        $this->assertOwnership($personable, $contact);
+
         $length = (int) config('persona.otp.length', 6);
         $otp = str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
         $ttl = (int) config('persona.otp.ttl', 600);
@@ -231,9 +234,13 @@ class ContactManager
      * The comparison is timing-safe. Failed attempts are tracked in the cache
      * and the OTP is locked after the `persona.otp.max_attempts` configured
      * number of consecutive failures.
+     *
+     * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
      */
-    public function verify(Contact $contact, string $otp): bool
+    public function verify(Model $personable, Contact $contact, string $otp): bool
     {
+        $this->assertOwnership($personable, $contact);
+
         $contactKey = $contact->getKey();
         $key = "persona:otp:{$contactKey}";
         $attemptsKey = "persona:otp_attempts:{$contactKey}";

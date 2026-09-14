@@ -161,6 +161,71 @@ class ContactManagerTest extends TestCase
         Persona::for($userB)->makeContactPrimary($contact);
     }
 
+    public function test_verify_contact_not_owned_throws(): void
+    {
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        $contact = Persona::for($userA)->addContact('email', 'a@example.com');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('does not belong');
+
+        Persona::for($userB)->verifyContact($contact, '000000');
+    }
+
+    public function test_send_contact_verification_not_owned_throws(): void
+    {
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        $contact = Persona::for($userA)->addContact('email', 'a@example.com');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('does not belong');
+
+        Persona::for($userB)->sendContactVerification($contact);
+    }
+
+    public function test_verify_contact_with_valid_otp_marks_verified(): void
+    {
+        $user = $this->createUser();
+
+        $contact = Persona::for($user)->addContact('email', 'verified@example.com');
+
+        $otp = Persona::for($user)->sendContactVerification($contact);
+
+        $this->assertTrue(Persona::for($user)->verifyContact($contact, $otp));
+        $this->assertTrue($contact->fresh()->is_verified);
+        $this->assertNotNull($contact->fresh()->verified_at);
+    }
+
+    public function test_domain_verify_requires_personable_and_throws_when_not_owned(): void
+    {
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        $contact = Persona::for($userA)->addContact('email', 'a@example.com');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('does not belong');
+
+        Persona::contacts()->verify($userB, $contact, '000000');
+    }
+
+    public function test_domain_send_verification_requires_personable_and_throws_when_not_owned(): void
+    {
+        $userA = $this->createUser(1);
+        $userB = $this->createUser(2);
+
+        $contact = Persona::for($userA)->addContact('email', 'a@example.com');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('does not belong');
+
+        Persona::contacts()->sendVerification($userB, $contact);
+    }
+
     // -------------------------------------------------------------------------
     // Cross-type isolation
     // -------------------------------------------------------------------------
