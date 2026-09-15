@@ -131,4 +131,39 @@ class DocumentManagerTest extends TestCase
         $this->assertTrue(Document::rejected()->whereKey($rejected->getKey())->exists());
         $this->assertFalse($rejected->isVerified());
     }
+
+    // -------------------------------------------------------------------------
+    // Config-driven storage disk
+    // -------------------------------------------------------------------------
+
+    public function test_attach_file_defaults_disk_from_storage_config(): void
+    {
+        $this->app['config']->set('persona.storage.disk', 's3');
+
+        $user = $this->createUser();
+        $document = Persona::for($user)->addDocument('passport', 'A1234567');
+
+        $file = Persona::for($user)->attachDocumentFile(
+            $document,
+            'persona/documents/1/front.jpg',
+        );
+
+        $this->assertSame('s3', $file->fresh()->disk);
+    }
+
+    public function test_attach_file_explicit_disk_overrides_config(): void
+    {
+        $this->app['config']->set('persona.storage.disk', 's3');
+
+        $user = $this->createUser();
+        $document = Persona::for($user)->addDocument('passport', 'B9999999');
+
+        $file = Persona::for($user)->attachDocumentFile(
+            $document,
+            'persona/documents/2/front.jpg',
+            disk: 'r2',
+        );
+
+        $this->assertSame('r2', $file->fresh()->disk);
+    }
 }

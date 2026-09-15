@@ -248,13 +248,13 @@ final class ScopedPersonaManager
      *
      * @param  Document    $document  A document record of this entity.
      * @param  string      $filePath  Path of the physical file on the disk.
-     * @param  string      $disk      Storage disk the file lives on.
+     * @param  string|null $disk      Storage disk the file lives on (defaults to config).
      * @param  string|null $side      e.g. 'front' / 'back' for identity documents.
      */
     public function attachDocumentFile(
         Document $document,
         string $filePath,
-        string $disk = 'local',
+        ?string $disk = null,
         ?string $side = null,
     ): DocumentFile {
         return $this->root->documents()->attachFile($this->personable, $document, $filePath, $disk, $side);

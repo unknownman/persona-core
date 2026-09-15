@@ -109,7 +109,7 @@ class DocumentManager
      * @param  Model        $personable  The entity that owns the document.
      * @param  Document     $document    A document that belongs to $personable.
      * @param  string       $filePath    Path of the physical file on the given disk.
-     * @param  string       $disk        Storage disk the file lives on.
+     * @param  string|null  $disk        Storage disk the file lives on (defaults to config).
      * @param  string|null  $side        e.g. 'front' / 'back' for identity documents.
      *
      * @throws \InvalidArgumentException  When the document does not belong to the given entity.
@@ -118,10 +118,12 @@ class DocumentManager
         Model $personable,
         Document $document,
         string $filePath,
-        string $disk = 'local',
+        ?string $disk = null,
         ?string $side = null,
     ): DocumentFile {
         $this->assertOwnership($personable, $document);
+
+        $disk ??= config('persona.storage.disk', 'local');
 
         $file = new DocumentFile([
             'file_path' => $filePath,
