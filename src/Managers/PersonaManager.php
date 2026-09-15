@@ -80,20 +80,20 @@ class PersonaManager
      * given model, either as the owner ("personable") or as the target of
      * a relationship ("related_personable").
      *
-     * Physical document files are removed from storage before the database
-     * rows are dropped, so no orphaned files are ever left behind. (The
-     * document_file rows themselves cascade away with their parent document.)
+     * Physical document files are removed from storage AFTER the database
+     * transaction commits, so a rollback cannot leave orphaned rows pointing
+     * at already-deleted files. (The document_file rows themselves cascade
+     * away with their parent document.)
      */
     public function forgetAll(Model $personable): void
     {
-        DB::transaction(function () use ($personable) {
-            $type = $personable->getMorphClass();
-            $id = $personable->getKey();
+        $type = $personable->getMorphClass();
+        $id = $personable->getKey();
+        $tables = config('persona.tables', []);
 
-            $tables = config('persona.tables', []);
+        $pendingFiles = $this->collectPhysicalDocumentFiles($tables, $type, $id);
 
-            $this->deletePhysicalDocumentFiles($tables, $type, $id);
-
+        DB::transaction(function () use ($personable, $tables, $type, $id) {
             foreach (self::PERSONABLE_TABLES as $key) {
                 if (isset($tables[$key])) {
                     DB::table($tables[$key])
@@ -120,35 +120,36 @@ class PersonaManager
 
             PersonaDataWiped::dispatch($personable);
         });
+
+        foreach ($pendingFiles as $file) {
+            Storage::disk($file->disk)->delete($file->file_path);
+        }
     }
 
     /**
-     * Delete the physical files of every document owned by the entity.
+     * Collect the physical file paths of every document owned by the entity.
      *
-     * Queries the document_files table via the documents join and removes
-     * each file from its own disk. Runs before any document rows are deleted
-     * so the file paths are still resolvable.
+     * Queries the document_files table via the documents join so the paths
+     * can be removed from storage AFTER the database transaction commits.
+     * Running this inside the transaction would mean a rollback cannot
+     * recover the already-deleted physical files.
      *
-     * @param  array<string, mixed>  $tables
+     * @return \Illuminate\Support\Collection<int, object>
      */
-    protected function deletePhysicalDocumentFiles(array $tables, string $type, int|string $id): void
+    protected function collectPhysicalDocumentFiles(array $tables, string $type, int|string $id)
     {
         if (! isset($tables['documents']) || ! isset($tables['document_files'])) {
-            return;
+            return collect();
         }
 
         $documents = $tables['documents'];
         $documentFiles = $tables['document_files'];
 
-        $files = DB::table($documentFiles)
+        return DB::table($documentFiles)
             ->join($documents, "{$documentFiles}.document_id", '=', "{$documents}.id")
             ->where("{$documents}.personable_type", $type)
             ->where("{$documents}.personable_id", $id)
             ->select("{$documentFiles}.file_path", "{$documentFiles}.disk")
             ->get();
-
-        foreach ($files as $file) {
-            Storage::disk($file->disk)->delete($file->file_path);
-        }
     }
 }

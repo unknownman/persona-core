@@ -212,7 +212,14 @@ class PersonaManagerTest extends TestCase
 
     public function test_forgetAll_rolls_back_every_change_when_a_delete_fails(): void
     {
-        ['user' => $user] = $this->seedFullFootprint();
+        DB::statement('PRAGMA foreign_keys = ON;');
+
+        Storage::fake('local');
+
+        ['user' => $user, 'document' => $document] = $this->seedFullFootprint();
+
+        Persona::for($user)->attachDocumentFile($document, 'persona/documents/1/front.jpg');
+        Storage::disk('local')->put('persona/documents/1/front.jpg', 'binary-contents');
 
         // Point a later table (physical_attributes) at a ghost table so the
         // preceding deletes succeed and then the transaction blows up.
@@ -244,5 +251,7 @@ class PersonaManagerTest extends TestCase
                 "{$table} changed despite the failed transaction."
             );
         }
+
+        Storage::disk('local')->assertExists('persona/documents/1/front.jpg');
     }
 }
