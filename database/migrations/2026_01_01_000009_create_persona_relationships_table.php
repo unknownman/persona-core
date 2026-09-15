@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->morphs('personable');
             $table->morphs('related_personable');
-            $table->string('type');
+            $table->string('type', 100);
             $table->timestamps();
 
             $table->unique(

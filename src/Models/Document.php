@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
 use Persona\Database\Factories\DocumentFactory;
@@ -45,6 +46,13 @@ class Document extends Model
     public function personable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    protected function pruning(): void
+    {
+        foreach ($this->files as $file) {
+            Storage::disk($file->disk)->delete($file->file_path);
+        }
     }
 
     public function prunable(): Builder
