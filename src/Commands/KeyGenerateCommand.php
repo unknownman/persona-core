@@ -52,10 +52,21 @@ class KeyGenerateCommand extends Command
      */
     protected function writeNewEnvironmentFileWith(string $key): void
     {
+        $envContent = file_get_contents($this->envPath());
+
+        if (! str_contains($envContent, 'PERSONA_HASH_KEY')) {
+            file_put_contents(
+                $this->envPath(),
+                $envContent.PHP_EOL.'PERSONA_HASH_KEY='.$key.PHP_EOL
+            );
+
+            return;
+        }
+
         file_put_contents($this->envPath(), preg_replace(
             $this->keyReplacementPattern(),
             'PERSONA_HASH_KEY='.$key,
-            file_get_contents($this->envPath())
+            $envContent
         ));
     }
 

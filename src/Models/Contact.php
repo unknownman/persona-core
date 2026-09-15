@@ -54,7 +54,7 @@ class Contact extends Model
     {
         $days = config('persona.retention.soft_deleted_days', 30);
 
-        return static::where('deleted_at', '<=', now()->subDays($days));
+        return static::onlyTrashed()->where('deleted_at', '<=', now()->subDays($days));
     }
 
     public function scopePrimary(Builder $query): Builder
