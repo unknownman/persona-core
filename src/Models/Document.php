@@ -67,19 +67,30 @@ class Document extends Model
         return $this->hasMany(DocumentFile::class);
     }
 
+    /**
+     * Resolve a document status label from the package configuration.
+     *
+     * Hosts may rename the status vocabulary via `persona.document_statuses.*`,
+     * so status comparisons must always read from config rather than hardcode.
+     */
+    protected static function statusValue(string $key): string
+    {
+        return (string) config('persona.document_statuses.' . $key, $key);
+    }
+
     public function scopePending(Builder $query): Builder
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', static::statusValue('initial'));
     }
 
     public function scopeRejected(Builder $query): Builder
     {
-        return $query->where('status', 'rejected');
+        return $query->where('status', static::statusValue('rejected'));
     }
 
     public function scopeCurrentlyValid(Builder $query): Builder
     {
-        return $query->where('status', 'verified')
+        return $query->where('status', static::statusValue('verified'))
             ->where(function (Builder $query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
@@ -88,7 +99,7 @@ class Document extends Model
 
     public function isVerified(): bool
     {
-        return $this->status === 'verified';
+        return $this->status === static::statusValue('verified');
     }
 
     public function isExpired(): bool
