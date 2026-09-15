@@ -95,15 +95,26 @@ final class ScopedPersonaManager
         $morphType = $this->personable->getMorphClass();
         $morphId   = $this->personable->getKey();
 
+        $relationships = Relationship::forEntity($this->personable)
+            ->with(['personable', 'relatedPersonable'])
+            ->get();
+
+        $morphMap = $relationships->pluck('personable_type')
+            ->merge($relationships->pluck('related_personable_type'))
+            ->filter()
+            ->unique()
+            ->mapWithKeys(fn (string $type) => [$type => ['profile']]);
+
+        $relationships->loadMorph('personable', $morphMap->all());
+        $relationships->loadMorph('relatedPersonable', $morphMap->all());
+
         return [
             'profile'           => Profile::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
             'contacts'          => Contact::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
             'addresses'         => Address::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
             'documents'         => Document::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
             'socialAccounts'    => SocialAccount::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
-            'relationships'     => Relationship::forEntity($this->personable)
-                ->with(['personable', 'relatedPersonable'])
-                ->get(),
+            'relationships'     => $relationships,
             'physicalAttribute' => PhysicalAttribute::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
             'legalDetail'       => LegalDetail::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
         ];

@@ -138,6 +138,8 @@ trait HasPersona
             ->with(['personable', 'relatedPersonable'])
             ->get();
 
+        $this->eagerLoadCounterpartProfiles($rows);
+
         return $rows->map(function (Relationship $row) use ($selfType, $selfId) {
             $isSelf = $row->personable_type === $selfType
                    && (string) $row->personable_id === $selfId;
@@ -219,6 +221,25 @@ trait HasPersona
     }
 
     /**
+     * Eager-load `profile` on every polymorphic counterpart in a Relationship
+     * collection so Blade can read `$counterpart->profile` without N+1 queries.
+     *
+     * Works by collecting the distinct morph class strings from both sides and
+     * delegating to Laravel's `Collection::loadMorph`.
+     */
+    private function eagerLoadCounterpartProfiles(Collection $relationships): void
+    {
+        $morphMap = $relationships->pluck('personable_type')
+            ->merge($relationships->pluck('related_personable_type'))
+            ->filter()
+            ->unique()
+            ->mapWithKeys(fn (string $type) => [$type => ['profile']]);
+
+        $relationships->loadMorph('personable', $morphMap->all());
+        $relationships->loadMorph('relatedPersonable', $morphMap->all());
+    }
+
+    /**
      * Load ALL relationships where this model appears on EITHER side.
      *
      * Both ends of each row (personable / relatedPersonable) are eager-loaded,
@@ -228,9 +249,13 @@ trait HasPersona
      */
     public function loadPersonaRelationships(): Collection
     {
-        return Relationship::forEntity($this)
+        $relationships = Relationship::forEntity($this)
             ->with(['personable', 'relatedPersonable'])
             ->get();
+
+        $this->eagerLoadCounterpartProfiles($relationships);
+
+        return $relationships;
     }
 
     /**
