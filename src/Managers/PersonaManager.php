@@ -4,8 +4,8 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Persona\Events\PersonaDataWiped;
+use Persona\Support\DocumentFileCleaner;
 
 class PersonaManager
 {
@@ -121,9 +121,7 @@ class PersonaManager
             PersonaDataWiped::dispatch($personable);
         });
 
-        foreach ($pendingFiles as $file) {
-            Storage::disk($file->disk)->delete($file->file_path);
-        }
+        DocumentFileCleaner::deleteFilesFor($pendingFiles);
     }
 
     /**

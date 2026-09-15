@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
 use Persona\Database\Factories\DocumentFactory;
+use Persona\Support\DocumentFileCleaner;
 
 class Document extends Model
 {
@@ -50,9 +50,7 @@ class Document extends Model
 
     protected function pruning(): void
     {
-        foreach ($this->files as $file) {
-            Storage::disk($file->disk)->delete($file->file_path);
-        }
+        DocumentFileCleaner::deleteFilesFor($this->files);
     }
 
     public function prunable(): Builder

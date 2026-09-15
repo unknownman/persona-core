@@ -6,7 +6,6 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\DocumentAdded;
 use Persona\Events\DocumentStatusUpdated;
@@ -14,6 +13,7 @@ use Persona\Events\DocumentVerificationRequested;
 use Persona\Models\Document;
 use Persona\Models\DocumentFile;
 use Persona\Notifications\DocumentStatusNotification;
+use Persona\Support\DocumentFileCleaner;
 use Persona\Support\PersonaHasher;
 
 class DocumentManager
@@ -147,9 +147,7 @@ class DocumentManager
     {
         $this->assertOwnership($personable, $document);
 
-        foreach ($document->files as $file) {
-            Storage::disk($file->disk)->delete($file->file_path);
-        }
+        DocumentFileCleaner::deleteFilesFor($document->files);
 
         return (bool) $document->delete();
     }
