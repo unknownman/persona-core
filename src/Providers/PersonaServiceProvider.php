@@ -4,6 +4,7 @@ namespace Persona\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Persona\Commands\InstallCommand;
+use Persona\Commands\KeyGenerateCommand;
 use Persona\Contracts\CountryNormalizerContract;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Contracts\EmailNormalizerContract;
@@ -107,6 +108,7 @@ class PersonaServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 InstallCommand::class,
+                KeyGenerateCommand::class,
             ]);
         }
     }

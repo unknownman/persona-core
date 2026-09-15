@@ -14,7 +14,7 @@ class InstallCommand extends Command
     {
         $this->components->info('Publishing Persona configuration and migrations...');
 
-        $this->call('vendor:publish', ['--tag' => 'persona-config', '--force' => true]);
+        $this->call('vendor:publish', ['--tag' => 'persona-config']);
         $this->call('vendor:publish', ['--tag' => 'persona-migrations', '--force' => true]);
 
         $this->publishCompanionAssets();
