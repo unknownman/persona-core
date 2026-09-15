@@ -1,6 +1,5 @@
 {
     "name": "laravel-persona/core",
-    "version": "1.4.0",
     "description": "Persona - a headless data layer for person-related data using polymorphic relations.",
     "keywords": ["persona", "person", "profile", "contact", "address", "laravel", "headless"],
     "license": "MIT",
