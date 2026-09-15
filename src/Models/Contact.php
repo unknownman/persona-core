@@ -18,6 +18,8 @@ class Contact extends Model
 
     protected $guarded = [];
 
+    protected $hidden = ['value_hash'];
+
     protected static function newFactory(): ContactFactory
     {
         return ContactFactory::new();

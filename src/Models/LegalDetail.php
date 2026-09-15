@@ -15,6 +15,8 @@ class LegalDetail extends Model
 
     protected $guarded = [];
 
+    protected $hidden = ['tax_id_hash'];
+
     protected static function newFactory(): LegalDetailFactory
     {
         return LegalDetailFactory::new();

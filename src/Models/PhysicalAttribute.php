@@ -26,6 +26,14 @@ class PhysicalAttribute extends Model
         return config('persona.tables.physical_attributes', 'persona_physical_attributes');
     }
 
+    protected function casts(): array
+    {
+        return [
+            'height' => 'integer',
+            'weight' => 'integer',
+        ];
+    }
+
     public function personable(): MorphTo
     {
         return $this->morphTo();

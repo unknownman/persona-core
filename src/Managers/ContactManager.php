@@ -142,7 +142,7 @@ class ContactManager
     {
         $this->assertOwnership($personable, $contact);
 
-        return (bool) $contact->delete();
+        return DB::transaction(fn (): bool => (bool) $contact->delete());
     }
 
     /**

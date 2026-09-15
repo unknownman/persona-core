@@ -20,12 +20,11 @@ class PersonaUniqueContactValue implements ValidationRule
      *                                        both parts of the morph pair, or a
      *                                        personable id together with
      *                                        $personableType.
-     * @param  int|string|null  $ignorePersonableId  Optionally exclude a single
-     *                                        owner id from the check. This is
-     *                                        meant ONLY for the update scenario,
-     *                                        where the row being edited belongs
-     *                                        to the current owner and must not
-     *                                        count against itself.
+     * @param  Contact|null  $ignore  Optionally exclude the CONTACT ROW being
+     *                                edited (never the owner). This is meant
+     *                                ONLY for the update scenario, where the
+     *                                record being changed must not count
+     *                                against itself.
      * @param  string|null  $personableType  The morph type (class or alias) used
      *                                       when $personable is given as a bare
      *                                       id rather than a Model.
@@ -33,7 +32,7 @@ class PersonaUniqueContactValue implements ValidationRule
     public function __construct(
         protected string $type,
         protected Model|int|string $personable,
-        protected int|string|null $ignorePersonableId = null,
+        protected ?Contact $ignore = null,
         protected ?string $personableType = null,
     ) {
         if (! $this->personable instanceof Model && $this->personableType === null) {
@@ -61,8 +60,8 @@ class PersonaUniqueContactValue implements ValidationRule
             ->where('type', $this->type)
             ->where('value_hash', $hash);
 
-        if ($this->ignorePersonableId !== null) {
-            $query->where('personable_id', '!=', $this->ignorePersonableId);
+        if ($this->ignore !== null) {
+            $query->whereKeyNot($this->ignore->getKey());
         }
 
         if ($query->exists()) {

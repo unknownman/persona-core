@@ -53,21 +53,36 @@ class PersonaUniqueContactValueTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Update scenario (ignorePersonableId)
+    // Update scenario (ignore the edited row)
     // -------------------------------------------------------------------------
 
-    public function test_ignore_personable_id_allows_own_record_during_update(): void
+    public function test_ignored_contact_row_allows_own_record_during_update(): void
     {
         $user = $this->createUser();
         $contact = Persona::for($user)->addContact('email', 'me@example.com');
 
-        $rule = new PersonaUniqueContactValue('email', $user, ignorePersonableId: $user->getKey());
+        $rule = new PersonaUniqueContactValue('email', $user, ignore: $contact);
         $validator = Validator::make(
             ['value' => 'me@example.com'],
             ['value' => [$rule]]
         );
 
-        $this->assertTrue($validator->passes(), 'Should not block the owner during update');
+        $this->assertTrue($validator->passes(), 'Should not block the row being edited');
+    }
+
+    public function test_update_scenario_still_rejects_a_different_duplicate_row(): void
+    {
+        $user = $this->createUser();
+        Persona::for($user)->addContact('email', 'taken@example.com');
+        $other = Persona::for($user)->addContact('email', 'free@example.com');
+
+        $rule = new PersonaUniqueContactValue('email', $user, ignore: $other);
+        $validator = Validator::make(
+            ['value' => 'taken@example.com'],
+            ['value' => [$rule]]
+        );
+
+        $this->assertTrue($validator->fails(), 'Uniqueness must remain enforced during updates');
     }
 
     // -------------------------------------------------------------------------

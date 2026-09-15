@@ -220,12 +220,12 @@ class DocumentManager
      */
     public function updateStatus(Document $document, string $status): void
     {
-        DocumentVerificationRequested::dispatch($document, $status);
-
         $oldStatus = (string) $document->status;
-        $document->update(['status' => $status]);
+
+        DB::transaction(fn () => $document->update(['status' => $status]));
 
         DocumentStatusUpdated::dispatch($document, $oldStatus, $status);
+        DocumentVerificationRequested::dispatch($document, $status);
 
         $notifiable = $document->personable;
         if ($notifiable && method_exists($notifiable, 'notify')) {
@@ -243,8 +243,6 @@ class DocumentManager
      */
     public function verify(Document $document): bool
     {
-        DocumentVerificationRequested::dispatch($document);
-
         $provider = $this->app->make(DocumentVerificationProvider::class);
         $verified = $provider->verify($document);
 

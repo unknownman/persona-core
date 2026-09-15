@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Persona\Managers\ScopedPersonaManager;
 use Persona\Models\Address;
 use Persona\Models\Contact;
@@ -233,7 +234,11 @@ trait HasPersona
             ->merge($relationships->pluck('related_personable_type'))
             ->filter()
             ->unique()
-            ->mapWithKeys(fn (string $type) => [$type => ['profile']]);
+            ->mapWithKeys(function (string $type) {
+                $class = Relation::getMorphedModel($type) ?? $type;
+
+                return [$class => ['profile']];
+            });
 
         $relationships->loadMorph('personable', $morphMap->all());
         $relationships->loadMorph('relatedPersonable', $morphMap->all());

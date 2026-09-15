@@ -11,9 +11,9 @@ return new class extends Migration
         Schema::create(config('persona.tables.documents', 'persona_documents'), function (Blueprint $table) {
             $table->id();
             $table->morphs('personable');
-            $table->string('type');
+            $table->string('type', 64);
             $table->text('number');
-            $table->string('number_hash');
+            $table->string('number_hash', 64);
             $table->string('country_code', 2)->nullable();
             $table->date('issued_at')->nullable();
             $table->date('expires_at')->nullable();
