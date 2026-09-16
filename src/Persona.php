@@ -45,6 +45,21 @@ use Persona\Managers\SocialAccountManager;
 class Persona
 {
     /**
+     * The custom callback used to hash persona lookup columns.
+     *
+     * @var callable|null
+     */
+    public static $hashCallback;
+
+    /**
+     * Set a custom callback to be used for hashing persona lookup columns.
+     */
+    public static function hashUsing(callable $callback): void
+    {
+        static::$hashCallback = $callback;
+    }
+
+    /**
      * Create a ScopedPersonaManager bound to the given model.
      *
      * This is the primary entry point for all scoped mutations:

@@ -130,4 +130,25 @@ class NormalizationHashingTest extends TestCase
         $this->assertNotEquals('AA123456', $raw->number_hash);
         $this->assertEquals(PersonaHasher::hash('AA123456'), $raw->number_hash);
     }
+
+    public function test_custom_hash_callback_can_be_defined(): void
+    {
+        Persona::hashUsing(fn ($val) => 'custom-' . $val);
+
+        $hash = PersonaHasher::hash('alice@example.com');
+        $this->assertEquals('custom-alice@example.com', $hash);
+        
+        // Verify it works through the manager entry point
+        Persona::for($this->user)->addContact('email', 'alice@example.com');
+
+        $raw = DB::table(config('persona.tables.contacts'))
+            ->where('personable_type', $this->user->getMorphClass())
+            ->where('personable_id', $this->user->getKey())
+            ->first();
+
+        $this->assertEquals('custom-alice@example.com', $raw->value_hash);
+
+        // Reset the callback
+        Persona::$hashCallback = null;
+    }
 }

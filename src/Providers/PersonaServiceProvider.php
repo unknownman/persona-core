@@ -7,6 +7,7 @@ use Persona\Commands\CleanOrphansCommand;
 use Persona\Commands\InstallCommand;
 use Persona\Commands\KeyGenerateCommand;
 use Persona\Contracts\CountryNormalizerContract;
+use Persona\Contracts\DocumentPathGeneratorContract;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Contracts\EmailNormalizerContract;
 use Persona\Contracts\HandleNormalizerContract;
@@ -25,6 +26,7 @@ use Persona\Normalizers\DefaultCountryNormalizer;
 use Persona\Normalizers\DefaultEmailNormalizer;
 use Persona\Normalizers\DefaultHandleNormalizer;
 use Persona\Normalizers\DefaultPhoneNormalizer;
+use Persona\Services\DefaultDocumentPathGenerator;
 use Persona\Services\NullDocumentVerificationProvider;
 use Persona\Services\NullSocialActivityResolver;
 
@@ -45,6 +47,7 @@ class PersonaServiceProvider extends ServiceProvider
         $this->app->singleton(CountryNormalizerContract::class, DefaultCountryNormalizer::class);
         $this->app->singleton(DocumentVerificationProvider::class, NullDocumentVerificationProvider::class);
         $this->app->singleton(SocialActivityResolverContract::class, NullSocialActivityResolver::class);
+        $this->app->singleton(DocumentPathGeneratorContract::class, DefaultDocumentPathGenerator::class);
 
         $this->app->singleton(ContactManager::class, function () {
             return new ContactManager();
