@@ -4,11 +4,14 @@ namespace Persona\Managers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Traits\Macroable;
 use Persona\Events\PersonaDataWiped;
 use Persona\Support\DocumentFileCleaner;
 
 class PersonaManager
 {
+    use Macroable;
+
     /**
      * The tables holding data keyed to "personable" morph columns.
      */

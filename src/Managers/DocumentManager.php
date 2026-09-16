@@ -13,6 +13,7 @@ use Persona\Events\DocumentVerificationRequested;
 use Persona\Models\Document;
 use Persona\Models\DocumentFile;
 use Persona\Notifications\DocumentStatusNotification;
+use Persona\Persona;
 use Persona\Support\DocumentFileCleaner;
 use Persona\Support\PersonaHasher;
 
@@ -229,9 +230,17 @@ class DocumentManager
 
         $notifiable = $document->personable;
         if ($notifiable && method_exists($notifiable, 'notify')) {
-            $notifiable->notify(new DocumentStatusNotification($document));
+            $notification = isset(Persona::$documentStatusNotificationCallback)
+                ? call_user_func(Persona::$documentStatusNotificationCallback, $document)
+                : new DocumentStatusNotification($document);
+
+            $notifiable->notify($notification);
         } elseif ($notifiable) {
-            Notification::send($notifiable, new DocumentStatusNotification($document));
+            $notification = isset(Persona::$documentStatusNotificationCallback)
+                ? call_user_func(Persona::$documentStatusNotificationCallback, $document)
+                : new DocumentStatusNotification($document);
+
+            Notification::send($notifiable, $notification);
         }
     }
 

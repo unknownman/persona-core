@@ -52,11 +52,59 @@ class Persona
     public static $hashCallback;
 
     /**
+     * The custom callback used to create a contact verification notification.
+     *
+     * When set, the callback receives the Contact and OTP string and must
+     * return a notification instance.  Resolved by the ContactManager.
+     *
+     * @var callable|null
+     */
+    public static $verifyContactNotificationCallback;
+
+    /**
+     * The custom callback used to create a document status notification.
+     *
+     * When set, the callback receives the Document and must return a
+     * notification instance.  Resolved by the DocumentManager.
+     *
+     * @var callable|null
+     */
+    public static $documentStatusNotificationCallback;
+
+    /**
      * Set a custom callback to be used for hashing persona lookup columns.
      */
     public static function hashUsing(callable $callback): void
     {
         static::$hashCallback = $callback;
+    }
+
+    /**
+     * Set a custom callback to resolve the notification for contact verification.
+     *
+     * The callback receives the Contact model and the OTP string and must
+     * return a notification instance.
+     *
+     * @example
+     *   Persona::verifyContactsUsing(fn ($contact, $otp) => new CustomOtpNotification($otp));
+     */
+    public static function verifyContactsUsing(callable $callback): void
+    {
+        static::$verifyContactNotificationCallback = $callback;
+    }
+
+    /**
+     * Set a custom callback to resolve the notification for document status changes.
+     *
+     * The callback receives the Document model and must return a notification
+     * instance.
+     *
+     * @example
+     *   Persona::notifyDocumentStatusUsing(fn ($document) => new CustomDocNotification($document));
+     */
+    public static function notifyDocumentStatusUsing(callable $callback): void
+    {
+        static::$documentStatusNotificationCallback = $callback;
     }
 
     /**

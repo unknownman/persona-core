@@ -11,6 +11,7 @@ use Persona\Events\ContactAdded;
 use Persona\Events\ContactVerified;
 use Persona\Models\Contact;
 use Persona\Notifications\VerifyContactNotification;
+use Persona\Persona;
 use Persona\Support\PersonaHasher;
 use Persona\Support\PersonaNormalizer;
 
@@ -203,7 +204,9 @@ class ContactManager
         // A fresh OTP grants a fresh set of attempts.
         Cache::forget("persona:otp_attempts:{$contactKey}");
 
-        $notification = new VerifyContactNotification($otp);
+        $notification = isset(Persona::$verifyContactNotificationCallback)
+            ? call_user_func(Persona::$verifyContactNotificationCallback, $contact, $otp)
+            : new VerifyContactNotification($otp);
 
         if ($contact->type === 'email') {
             Notification::route('mail', $contact->value)->notify($notification);
