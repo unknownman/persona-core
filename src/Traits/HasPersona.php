@@ -4,6 +4,7 @@ namespace Persona\Traits;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -20,6 +21,35 @@ use Persona\Persona;
 
 trait HasPersona
 {
+    /**
+     * Boot the HasPersona trait.
+     *
+     * Automatically wipes the complete Persona footprint when the owning model
+     * is truly removed from the database — either a hard delete on a model
+     * without SoftDeletes, or a forceDelete() on a soft-deleting model —
+     * preventing orphaned polymorphic rows that the RDBMS cannot cascade away.
+     *
+     * Host models may retain their Persona data by declaring a
+     * `$preservePersonaOnDelete` property (or a `preservePersonaOnDelete()`
+     * method) returning true — useful for audit, compliance, or future
+     * reassignment of a deleted employee or customer.
+     */
+    public static function bootHasPersona(): void
+    {
+        static::deleting(function (Model $model): void {
+            $preserve = (property_exists($model, 'preservePersonaOnDelete') && $model->preservePersonaOnDelete)
+                     || (method_exists($model, 'preservePersonaOnDelete') && $model->preservePersonaOnDelete());
+
+            if ($preserve) {
+                return;
+            }
+
+            if (! method_exists($model, 'isForceDeleting') || $model->isForceDeleting()) {
+                Persona::forgetAll($model);
+            }
+        });
+    }
+
     /**
      * Get all persona profiles for the model.
      */

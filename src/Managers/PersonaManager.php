@@ -12,7 +12,7 @@ class PersonaManager
     /**
      * The tables holding data keyed to "personable" morph columns.
      */
-    protected const PERSONABLE_TABLES = [
+    public const PERSONABLE_TABLES = [
         'profiles',
         'social_accounts',
         'contacts',

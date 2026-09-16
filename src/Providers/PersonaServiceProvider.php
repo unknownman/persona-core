@@ -3,6 +3,7 @@
 namespace Persona\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Persona\Commands\CleanOrphansCommand;
 use Persona\Commands\InstallCommand;
 use Persona\Commands\KeyGenerateCommand;
 use Persona\Contracts\CountryNormalizerContract;
@@ -107,6 +108,7 @@ class PersonaServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                CleanOrphansCommand::class,
                 InstallCommand::class,
                 KeyGenerateCommand::class,
             ]);

@@ -58,6 +58,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Orphan Cleanup
+    |--------------------------------------------------------------------------
+    |
+    | The persona:clean-orphans command deletes orphaned Persona rows in
+    | batches instead of a single mass query, preventing long-held table locks
+    | and memory exhaustion on very large tables. `chunk_size` controls how
+    | many orphaned rows are removed per batch.
+    |
+    */
+
+    'cleanup' => [
+        'chunk_size' => 1000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Database Tables
     |--------------------------------------------------------------------------
     |
