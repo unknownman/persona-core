@@ -7,16 +7,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
 use Persona\Database\Factories\DocumentFactory;
 use Persona\Support\DocumentFileCleaner;
+use Persona\Traits\BelongsToPersonable;
 
 class Document extends Model
 {
-    use HasFactory, Prunable, SoftDeletes;
+    use BelongsToPersonable, HasFactory, Prunable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -43,11 +43,6 @@ class Document extends Model
             'issued_at' => 'date',
             'expires_at' => 'date',
         ];
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 
     protected function pruning(): void

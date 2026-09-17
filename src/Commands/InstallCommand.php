@@ -8,18 +8,20 @@ class InstallCommand extends Command
 {
     protected $signature = 'persona:install {--migrations : Automatically run database migrations}';
 
-    protected $description = 'Install and configure the Persona core package.';
+    protected $description = 'Install Persona: publish assets, set the hash key, and run migrations.';
 
     public function handle(): int
     {
         $this->components->info('Publishing Persona configuration and migrations...');
 
         $this->call('vendor:publish', ['--tag' => 'persona-config']);
-        $this->call('vendor:publish', ['--tag' => 'persona-migrations', '--force' => true]);
+        $this->call('vendor:publish', ['--tag' => 'persona-migrations']);
 
         $this->publishCompanionAssets();
 
-        if ($this->option('migrations') || $this->components->confirm('Run the database migrations now?', false)) {
+        $this->setupHashKey();
+
+        if ($this->option('migrations') || ($this->input->isInteractive() && $this->components->confirm('Run the database migrations now?', false))) {
             $this->call('migrate');
         }
 
@@ -29,6 +31,34 @@ class InstallCommand extends Command
         $this->components->info('Persona has been installed successfully.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Generate a PERSONA_HASH_KEY when none is configured.
+     *
+     * Drives the bundled `persona:key` command so a fresh install never runs
+     * with an empty hash key (all encrypted/hashed Persona values would be
+     * stored with a `base64:` prefix and every derived hash would be unstable).
+     */
+    private function setupHashKey(): void
+    {
+        if (config('persona.hash_key')) {
+            return;
+        }
+
+        if (! $this->input->isInteractive()) {
+            $this->call('persona:key');
+
+            return;
+        }
+
+        if (! $this->components->confirm('Generate a Persona hash key now? (Recommended for encryption)', true)) {
+            $this->components->warn('Skipped. Set PERSONA_HASH_KEY in your .env file before storing Persona values.');
+
+            return;
+        }
+
+        $this->call('persona:key');
     }
 
     private function publishCompanionAssets(): void
@@ -47,7 +77,12 @@ class InstallCommand extends Command
             [
                 'provider' => \Persona\Inertia\Providers\PersonaInertiaServiceProvider::class,
                 'question' => 'Persona Inertia detected. Publish frontend assets and controllers? [Y/n]',
-                'tags' => ['persona-inertia-frontend', 'persona-inertia-controllers'],
+                'tags' => [
+                    'persona-inertia-frontend',
+                    'persona-inertia-controllers',
+                    'persona-inertia-routes',
+                    'persona-inertia-page',
+                ],
             ],
             [
                 'provider' => \Persona\Api\Providers\PersonaApiServiceProvider::class,
@@ -61,7 +96,7 @@ class InstallCommand extends Command
                 continue;
             }
 
-            if (! $this->components->confirm($companion['question'], true)) {
+            if (! $this->input->isInteractive() || ! $this->components->confirm($companion['question'], true)) {
                 continue;
             }
 

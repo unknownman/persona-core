@@ -2,16 +2,22 @@
 
 namespace Persona\Tests\Feature\Integration;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\AddressAdded;
 use Persona\Events\AddressMadePrimary;
 use Persona\Events\AddressRemoved;
 use Persona\Events\ContactAdded;
+use Persona\Events\ContactMadePrimary;
+use Persona\Events\ContactRemoved;
 use Persona\Events\ContactVerified;
 use Persona\Events\DocumentAdded;
+use Persona\Events\DocumentRemoved;
 use Persona\Events\DocumentStatusUpdated;
+use Persona\Events\DocumentVerificationRequested;
 use Persona\Events\LegalDetailUpdated;
 use Persona\Events\PersonaDataWiped;
 use Persona\Events\PhysicalAttributeUpdated;
@@ -171,6 +177,66 @@ class EventDispatchTest extends TestCase
                 && $event->oldStatus === 'pending'
                 && $event->newStatus === 'verified';
         });
+    }
+
+    public function test_contact_events_dispatched_for_add_make_primary_and_delete(): void
+    {
+        Event::fake();
+
+        $contact = Persona::for($this->user)->addContact('email', 'bob@example.com');
+
+        Event::assertDispatched(ContactAdded::class, fn (ContactAdded $event) => $event->contact->is($contact));
+
+        Persona::for($this->user)->makeContactPrimary($contact);
+
+        Event::assertDispatched(ContactMadePrimary::class, fn (ContactMadePrimary $event) => $event->contact->is($contact));
+
+        Persona::for($this->user)->deleteContact($contact);
+
+        Event::assertDispatched(ContactRemoved::class, function (ContactRemoved $event) use ($contact) {
+            return $event->contact->is($contact);
+        });
+    }
+
+    public function test_document_removed_event_dispatched_on_delete(): void
+    {
+        Event::fake();
+
+        $document = Persona::for($this->user)->addDocument('passport', 'AA123456');
+
+        $deleted = Persona::for($this->user)->deleteDocument($document);
+
+        $this->assertTrue($deleted);
+        Event::assertDispatched(DocumentRemoved::class, fn (DocumentRemoved $event) => $event->document->is($document));
+    }
+
+    public function test_document_verification_requested_dispatched_before_status_change(): void
+    {
+        Notification::fake();
+
+        $this->app->instance(DocumentVerificationProvider::class, new class implements DocumentVerificationProvider {
+            public function verify(Model $document): bool
+            {
+                return true;
+            }
+        });
+
+        $order = [];
+        Event::listen(DocumentVerificationRequested::class, function (DocumentVerificationRequested $event) use (&$order) {
+            $order[] = ['requested', $event->newStatus];
+        });
+        Event::listen(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use (&$order) {
+            $order[] = ['status_updated', $event->newStatus];
+        });
+
+        $document = Persona::for($this->user)->addDocument('passport', 'AA123456');
+
+        Persona::for($this->user)->root()->documents()->verify($document);
+
+        $this->assertSame([
+            ['requested', 'verified'],
+            ['status_updated', 'verified'],
+        ], $order);
     }
 
     public function test_physical_attribute_and_legal_detail_updated_events_dispatched(): void

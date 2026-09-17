@@ -182,6 +182,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Contact Types
+    |--------------------------------------------------------------------------
+    |
+    | The allowed contact types used when adding contacts to a Persona. The
+    | ContactManager validates this list before writing, so invalid types are
+    | rejected at the Domain layer. The host may extend this list freely.
+    |
+    */
+
+    'contact_types' => [
+        'email',
+        'phone',
+        'handle',
+        'username',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Relationship Types
     |--------------------------------------------------------------------------
     |
@@ -212,6 +230,19 @@ return [
             'colleague',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed Relationship Morphs
+    |--------------------------------------------------------------------------
+    |
+    | The morph types that are allowed to be linked as a related personable
+    | entity via the API. This prevents morph-type injection vulnerabilities
+    | where an attacker could instantiate arbitrary classes.
+    |
+    */
+
+    'allowed_relationship_morphs' => [],
 
     /*
     |--------------------------------------------------------------------------

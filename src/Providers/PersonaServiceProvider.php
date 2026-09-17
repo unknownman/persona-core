@@ -2,6 +2,7 @@
 
 namespace Persona\Providers;
 
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Persona\Commands\CleanOrphansCommand;
 use Persona\Commands\InstallCommand;
@@ -23,10 +24,18 @@ use Persona\Managers\PhysicalAttributeManager;
 use Persona\Managers\ProfileManager;
 use Persona\Managers\RelationshipManager;
 use Persona\Managers\SocialAccountManager;
+use Persona\Models\Address;
+use Persona\Models\Contact;
+use Persona\Models\Document;
+use Persona\Models\LegalDetail;
+use Persona\Models\PhysicalAttribute;
+use Persona\Models\Profile;
+use Persona\Models\SocialAccount;
 use Persona\Normalizers\DefaultCountryNormalizer;
 use Persona\Normalizers\DefaultEmailNormalizer;
 use Persona\Normalizers\DefaultHandleNormalizer;
 use Persona\Normalizers\DefaultPhoneNormalizer;
+use Persona\Policies\PersonaPolicy;
 use Persona\Services\DefaultDocumentPathGenerator;
 use Persona\Services\NullAvatarResolver;
 use Persona\Services\NullDocumentVerificationProvider;
@@ -112,6 +121,14 @@ class PersonaServiceProvider extends ServiceProvider
             __DIR__ . '/../../config/persona.php' => config_path('persona.php'),
         ], 'persona-config');
 
+        // One shared policy gates raw, unmasked PII across every Persona row.
+        // The policy resolves the polymorphic owner itself, so hosts can call
+        // $user->can('viewSensitive', $contact) straight from any serialization
+        // layer (JsonResources, controllers, Livewire components, ...).
+        foreach ($this->maskedModels() as $model) {
+            Gate::policy($model, PersonaPolicy::class);
+        }
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 CleanOrphansCommand::class,
@@ -119,5 +136,24 @@ class PersonaServiceProvider extends ServiceProvider
                 KeyGenerateCommand::class,
             ]);
         }
+    }
+
+    /**
+     * Persona models whose serialized resources expose sensitive fields that
+     * must be masked until `viewSensitive` is authorized.
+     *
+     * @return array<class-string<\Illuminate\Database\Eloquent\Model>>
+     */
+    private function maskedModels(): array
+    {
+        return [
+            Profile::class,
+            Contact::class,
+            Address::class,
+            Document::class,
+            SocialAccount::class,
+            PhysicalAttribute::class,
+            LegalDetail::class,
+        ];
     }
 }

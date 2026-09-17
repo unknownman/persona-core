@@ -4,12 +4,12 @@ namespace Persona\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Database\Factories\PhysicalAttributeFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class PhysicalAttribute extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 
@@ -32,10 +32,5 @@ class PhysicalAttribute extends Model
             'height' => 'integer',
             'weight' => 'integer',
         ];
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 }

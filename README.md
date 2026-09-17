@@ -20,7 +20,7 @@ Then run the interactive installer:
 php artisan persona:install
 ```
 
-This will publish the config, migrations, and stubs, and prompt you to set up your `PERSONA_HASH_KEY`.
+This will publish the configuration and migration files (plus any detected companion-package assets), prompt you to set your `PERSONA_HASH_KEY` through the built-in key generator, and optionally run the database migrations.
 
 ## Full Documentation
 

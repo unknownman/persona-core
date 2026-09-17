@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Persona\Contracts\DocumentVerificationProvider;
 use Persona\Events\DocumentAdded;
+use Persona\Events\DocumentRemoved;
 use Persona\Events\DocumentStatusUpdated;
 use Persona\Events\DocumentVerificationRequested;
 use Persona\Models\Document;
@@ -150,7 +151,13 @@ class DocumentManager
 
         DocumentFileCleaner::deleteFilesFor($document->files);
 
-        return (bool) $document->delete();
+        $deleted = (bool) $document->delete();
+
+        if ($deleted) {
+            DocumentRemoved::dispatch($document);
+        }
+
+        return $deleted;
     }
 
     /**
@@ -226,16 +233,9 @@ class DocumentManager
         DB::transaction(fn () => $document->update(['status' => $status]));
 
         DocumentStatusUpdated::dispatch($document, $oldStatus, $status);
-        DocumentVerificationRequested::dispatch($document, $status);
 
         $notifiable = $document->personable;
-        if ($notifiable && method_exists($notifiable, 'notify')) {
-            $notification = isset(Persona::$documentStatusNotificationCallback)
-                ? call_user_func(Persona::$documentStatusNotificationCallback, $document)
-                : new DocumentStatusNotification($document);
-
-            $notifiable->notify($notification);
-        } elseif ($notifiable) {
+        if ($notifiable) {
             $notification = isset(Persona::$documentStatusNotificationCallback)
                 ? call_user_func(Persona::$documentStatusNotificationCallback, $document)
                 : new DocumentStatusNotification($document);
@@ -255,12 +255,15 @@ class DocumentManager
         $provider = $this->app->make(DocumentVerificationProvider::class);
         $verified = $provider->verify($document);
 
-        $this->updateStatus(
-            $document,
-            $verified
-                ? config('persona.document_statuses.verified', 'verified')
-                : config('persona.document_statuses.rejected', 'rejected')
-        );
+        $status = $verified
+            ? config('persona.document_statuses.verified', 'verified')
+            : config('persona.document_statuses.rejected', 'rejected');
+
+        // The intent to verify is announced BEFORE any status transition so
+        // listeners can act on the request, not on its side effects.
+        DocumentVerificationRequested::dispatch($document, $status);
+
+        $this->updateStatus($document, $status);
 
         return $verified;
     }

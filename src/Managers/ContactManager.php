@@ -7,7 +7,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Persona\Events\ContactAdded;
+use Persona\Events\ContactMadePrimary;
+use Persona\Events\ContactRemoved;
+use Persona\Events\ContactValueUpdated;
 use Persona\Events\ContactVerified;
 use Persona\Models\Contact;
 use Persona\Notifications\VerifyContactNotification;
@@ -17,6 +21,9 @@ use Persona\Support\PersonaNormalizer;
 
 class ContactManager
 {
+    public function __construct(
+        protected ContactDriverManager $driverManager
+    ) {}
 
     /**
      * Add a contact value for a personable model.
@@ -28,7 +35,7 @@ class ContactManager
      *                           primary contact for the given type.
      * @param  bool  $isEmergency  Marks the contact as an emergency line.
      *
-     * @throws \InvalidArgumentException  When an active contact with the same value already exists for the entity.
+     * @throws \InvalidArgumentException  When an active contact with the same value already exists for the entity, or when the type is not allowed.
      */
     public function add(
         Model $personable,
@@ -37,7 +44,10 @@ class ContactManager
         bool $isPrimary = false,
         bool $isEmergency = false,
     ): Contact {
-        $value = PersonaNormalizer::resolve($type, $value);
+        $this->assertAllowedType($type);
+
+        $driver = $this->driverManager->driver($type);
+        $value = $driver->normalize($value);
 
         return DB::transaction(function () use ($personable, $type, $value, $isPrimary, $isEmergency) {
             // The unique index is (personable_type, personable_id, type,
@@ -114,6 +124,22 @@ class ContactManager
     }
 
     /**
+     * Assert that the contact type is part of the configured vocabulary.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function assertAllowedType(string $type): void
+    {
+        $allowed = config('persona.contact_types', array_keys(config('persona.normalizers', [])));
+
+        if (! in_array($type, $allowed, true)) {
+            throw new \InvalidArgumentException(
+                __("The contact type '{$type}' is not allowed by the persona configuration.")
+            );
+        }
+    }
+
+    /**
      * Mark a contact as the primary contact for its type and personable model.
      *
      * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
@@ -131,6 +157,10 @@ class ContactManager
                 ->update(['is_primary' => false]);
 
             $contact->update(['is_primary' => true]);
+
+            // Dispatched inside the transaction, but `ShouldDispatchAfterCommit`
+            // defers the actual dispatch until the transaction commits.
+            ContactMadePrimary::dispatch($contact);
         });
     }
 
@@ -143,34 +173,86 @@ class ContactManager
     {
         $this->assertOwnership($personable, $contact);
 
-        return DB::transaction(fn (): bool => (bool) $contact->delete());
+        $deleted = DB::transaction(fn (): bool => (bool) $contact->delete());
+
+        if ($deleted) {
+            ContactRemoved::dispatch($contact);
+        }
+
+        return $deleted;
     }
 
     /**
      * Update the value of an existing contact.
      *
-     * Keeps `value_hash` in sync with the normalized `value` so lookup
-     * queries and uniqueness rules keep working, and resets the verification
-     * status since the previously verified value is no longer valid.
+     * Mirrors `add()`'s safety guarantees: the new value is normalized and
+     * deduplicated against every other contact of the same type, a trashed
+     * twin is restored (inheriting the current contact's flags) instead of
+     * re-inserting, and the change is announced through `ContactValueUpdated`.
+     * The verification status is reset since the previously verified value is
+     * no longer valid.
      *
-     * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
+     * @throws \InvalidArgumentException  When the contact does not belong to the given entity, or another active contact already holds the value.
      */
     public function updateValue(Model $personable, Contact $contact, string $newValue): Contact
     {
         $this->assertOwnership($personable, $contact);
 
-        $newValue = PersonaNormalizer::resolve((string) $contact->type, $newValue);
+        $oldValue = (string) $contact->value;
+        $driver = $this->driverManager->driver((string) $contact->type);
+        $newValue = $driver->normalize($newValue);
 
-        DB::transaction(function () use ($contact, $newValue) {
+        return DB::transaction(function () use ($personable, $contact, $oldValue, $newValue) {
+            // A previously trashed twin (same personable, type and value_hash)
+            // is matched via withTrashed() and restored — exactly like `add()`
+            // — instead of triggering an SQL integrity violation on update.
+            $twin = Contact::withTrashed()
+                ->where('personable_type', $personable->getMorphClass())
+                ->where('personable_id', $personable->getKey())
+                ->where('type', $contact->type)
+                ->where('value_hash', $this->lookupHash($newValue))
+                ->where('id', '!=', $contact->getKey())
+                ->first();
+
+            if ($twin) {
+                if (! $twin->trashed()) {
+                    throw new \InvalidArgumentException(
+                        __('This contact is already registered for this entity.')
+                    );
+                }
+
+                if ($contact->is_primary) {
+                    $this->demoteOtherContacts($personable, $contact->type);
+                }
+
+                $twin->restore();
+                $twin->fill([
+                    'value' => $newValue,
+                    'value_hash' => $newValue,
+                    'is_primary' => $contact->is_primary,
+                    'is_emergency' => $contact->is_emergency,
+                    'is_verified' => false,
+                    'verified_at' => null,
+                ])->save();
+
+                $contact->delete();
+
+                ContactValueUpdated::dispatch($twin, $oldValue, $newValue);
+
+                return $twin;
+            }
+
             $contact->update([
                 'value' => $newValue,
                 'value_hash' => $newValue,
                 'is_verified' => false,
                 'verified_at' => null,
             ]);
-        });
 
-        return $contact;
+            ContactValueUpdated::dispatch($contact, $oldValue, $newValue);
+
+            return $contact;
+        });
     }
 
     /**
@@ -180,63 +262,22 @@ class ContactManager
      * Email contacts are routed through the mail channel to the email itself.
      * Phone contacts are routed through a host-configured notification channel
      * (see the `persona.otp.sms_channel` config key) so no third-party SMS
-     * provider is hardcoded here.
+     * provider is hardcoded here. Custom notifications supplied via
+     * `Persona::verifyContactsUsing()` are routed as-is: the notification's
+     * own `via()` method decides the channels, so any standard Notification
+     * class can be used without package-specific methods.
      *
      * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
-     * @throws \RuntimeException  When no notification route can be determined for the contact type.
      */
     public function sendVerification(Model $personable, Contact $contact): string
     {
         $this->assertOwnership($personable, $contact);
 
-        $length = (int) config('persona.otp.length', 6);
-        $otp = str_pad((string) random_int(0, (10 ** $length) - 1), $length, '0', STR_PAD_LEFT);
-        $ttl = (int) config('persona.otp.ttl', 600);
-
-        $contactKey = $contact->getKey();
-
-        Cache::put(
-            "persona:otp:{$contactKey}",
-            $otp,
-            Carbon::now()->addSeconds($ttl)
-        );
-
-        // A fresh OTP grants a fresh set of attempts.
-        Cache::forget("persona:otp_attempts:{$contactKey}");
-
-        $notification = isset(Persona::$verifyContactNotificationCallback)
-            ? call_user_func(Persona::$verifyContactNotificationCallback, $contact, $otp)
-            : new VerifyContactNotification($otp);
-
-        if ($contact->type === 'email') {
-            Notification::route('mail', $contact->value)->notify($notification);
-        } elseif ($contact->type === 'phone') {
-            $channel = (string) config('persona.otp.sms_channel', 'vonage');
-
-            if (! $notification->supportsChannel($channel)) {
-                throw new \RuntimeException(
-                    __('Unable to determine notification route for contact type: ' . $contact->type)
-                );
-            }
-
-            $notification->channels = [$channel];
-
-            Notification::route($channel, $contact->value)->notify($notification);
-        } else {
-            throw new \RuntimeException(
-                __('Unable to determine notification route for contact type: ' . $contact->type)
-            );
-        }
-
-        return $otp;
+        return $this->driverManager->driver($contact->type)->sendVerification($personable, $contact);
     }
 
     /**
-     * Verify an OTP against the cache and mark the contact as verified.
-     *
-     * The comparison is timing-safe. Failed attempts are tracked in the cache
-     * and the OTP is locked after the `persona.otp.max_attempts` configured
-     * number of consecutive failures.
+     * Verify an OTP and mark the contact as verified.
      *
      * @throws \InvalidArgumentException  When the contact does not belong to the given entity.
      */
@@ -244,38 +285,7 @@ class ContactManager
     {
         $this->assertOwnership($personable, $contact);
 
-        $contactKey = $contact->getKey();
-        $key = "persona:otp:{$contactKey}";
-        $attemptsKey = "persona:otp_attempts:{$contactKey}";
-        $maxAttempts = (int) config('persona.otp.max_attempts', 5);
-
-        if ((int) Cache::get($attemptsKey, 0) > $maxAttempts) {
-            Cache::forget($key);
-
-            return false;
-        }
-
-        $cachedOtp = Cache::get($key);
-
-        if ($cachedOtp === null || ! hash_equals((string) $cachedOtp, (string) $otp)) {
-            if ((int) Cache::increment($attemptsKey) > $maxAttempts) {
-                Cache::forget($key);
-            }
-
-            return false;
-        }
-
-        Cache::forget($key);
-        Cache::forget($attemptsKey);
-
-        $contact->update([
-            'is_verified' => true,
-            'verified_at' => Carbon::now(),
-        ]);
-
-        ContactVerified::dispatch($contact);
-
-        return true;
+        return $this->driverManager->driver($contact->type)->verify($personable, $contact, $otp);
     }
 
     /**

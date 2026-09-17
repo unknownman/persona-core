@@ -5,12 +5,12 @@ namespace Persona\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Database\Factories\AddressFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class Address extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 
@@ -32,11 +32,6 @@ class Address extends Model
         return [
             'is_primary' => 'boolean',
         ];
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 
     public function scopePrimary(Builder $query): Builder

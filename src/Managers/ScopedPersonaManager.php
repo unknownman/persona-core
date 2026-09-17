@@ -8,7 +8,6 @@ use Persona\Models\Address;
 use Persona\Models\Contact;
 use Persona\Models\Document;
 use Persona\Models\DocumentFile;
-use Persona\Contracts\AvatarResolverContract;
 use Persona\Models\LegalDetail;
 use Persona\Models\PhysicalAttribute;
 use Persona\Models\Profile;
@@ -68,10 +67,12 @@ final class ScopedPersonaManager
      * plain models fall back to direct morph-pair queries keyed by
      * `personable_type` / `personable_id`, so no trait is required either way.
      *
-     * When a profile exists, its resolved avatar URL (via the
-     * `AvatarResolverContract` binding) is attached as a transient
-     * `avatar_url` attribute, so it is available both through
-     * `$profile->avatar_url` and through Eloquent serialization (`toArray()`).
+     * When a profile exists, the `avatar_url` attribute (backed by the
+     * `AvatarResolverContract` binding) is appended to the Profile model
+     * before it is returned, so it is available through both
+     * `$profile->avatar_url` and Eloquent `toArray()` — without being part
+     * of the model's default `$appends`, which would trigger the external
+     * resolver on every serialization of a profile list.
      *
      * @return array{
      *     profile: \Persona\Models\Profile|null,
@@ -90,7 +91,7 @@ final class ScopedPersonaManager
             $this->personable->loadPersonaDetails();
 
             return [
-                'profile'           => $this->withAvatar($this->personable->profile),
+                'profile'           => $this->personable->profile?->append('avatar_url'),
                 'contacts'          => $this->personable->contacts,
                 'addresses'         => $this->personable->addresses,
                 'documents'         => $this->personable->documents,
@@ -100,9 +101,6 @@ final class ScopedPersonaManager
                 'legalDetail'       => $this->personable->legalDetail,
             ];
         }
-
-        $morphType = $this->personable->getMorphClass();
-        $morphId   = $this->personable->getKey();
 
         $relationships = Relationship::forEntity($this->personable)
             ->with(['personable', 'relatedPersonable'])
@@ -117,33 +115,18 @@ final class ScopedPersonaManager
         $relationships->loadMorph('personable', $morphMap->all());
         $relationships->loadMorph('relatedPersonable', $morphMap->all());
 
+        $profile = Profile::forPersonable($this->personable)->first();
+
         return [
-            'profile'           => $this->withAvatar(
-                Profile::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
-            ),
-            'contacts'          => Contact::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
-            'addresses'         => Address::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
-            'documents'         => Document::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
-            'socialAccounts'    => SocialAccount::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->get(),
+            'profile'           => $profile?->append('avatar_url'),
+            'contacts'          => Contact::forPersonable($this->personable)->get(),
+            'addresses'         => Address::forPersonable($this->personable)->get(),
+            'documents'         => Document::forPersonable($this->personable)->get(),
+            'socialAccounts'    => SocialAccount::forPersonable($this->personable)->get(),
             'relationships'     => $relationships,
-            'physicalAttribute' => PhysicalAttribute::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
-            'legalDetail'       => LegalDetail::query()->where('personable_type', $morphType)->where('personable_id', $morphId)->first(),
+            'physicalAttribute' => PhysicalAttribute::forPersonable($this->personable)->first(),
+            'legalDetail'       => LegalDetail::forPersonable($this->personable)->first(),
         ];
-    }
-
-    /**
-     * Attach the resolved avatar URL to the profile, when one exists.
-     *
-     * The URL is stored as a transient attribute so it never touches the
-     * database but still spreads through `toArray()` / JSON serialization.
-     */
-    protected function withAvatar(?Profile $profile): ?Profile
-    {
-        if ($profile) {
-            $profile->setAttribute('avatar_url', app(AvatarResolverContract::class)->getAvatarUrl($profile));
-        }
-
-        return $profile;
     }
 
     // -------------------------------------------------------------------------

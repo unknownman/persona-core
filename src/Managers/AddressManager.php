@@ -19,6 +19,8 @@ class AddressManager
      * invariant holds. The whole operation runs in one DB transaction.
      *
      * @param  array<string, mixed>  $attributes
+     *
+     * @throws \InvalidArgumentException  When the type is not in the configured vocabulary.
      */
     public function add(
         Model $personable,
@@ -27,6 +29,8 @@ class AddressManager
         array $attributes = [],
         bool $isPrimary = false,
     ): Address {
+        $this->assertAllowedType($type);
+
         return DB::transaction(function () use ($personable, $type, $line1, $attributes, $isPrimary) {
             if ($isPrimary) {
                 $this->demoteSameType($personable, $type);
@@ -84,6 +88,20 @@ class AddressManager
         }
 
         return $deleted;
+    }
+
+    /**
+     * Assert that the address type is part of the configured vocabulary.
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function assertAllowedType(string $type): void
+    {
+        if (! in_array($type, config('persona.address_types', []), true)) {
+            throw new \InvalidArgumentException(
+                __("The address type '{$type}' is not allowed by the persona configuration.")
+            );
+        }
     }
 
     /**

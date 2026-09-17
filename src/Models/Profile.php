@@ -2,15 +2,16 @@
 
 namespace Persona\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Database\Factories\ProfileFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class Profile extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 
@@ -35,8 +36,23 @@ class Profile extends Model
         ];
     }
 
-    public function personable(): MorphTo
+    /**
+     * Resolve the avatar URL via the bound AvatarResolverContract.
+     *
+     * Implemented strictly as an Eloquent Attribute (never a raw column) so
+     * `avatar_url` flows through `toArray()` / JSON serialization only when
+     * explicitly appended — callers can safely persist the model without a
+     * missing-column SQLSTATE, and serializing profile lists does not hammer
+     * the external avatar resolver. `shouldCache()` keeps the resolver call
+     * at one per model instance.
+     *
+     * Consumers that need the value in a serialized form must append it
+     * explicitly (e.g. `$profile->append('avatar_url')`).
+     */
+    protected function avatarUrl(): Attribute
     {
-        return $this->morphTo();
+        return Attribute::get(
+            fn () => app(\Persona\Contracts\AvatarResolverContract::class)->getAvatarUrl($this)
+        )->shouldCache();
     }
 }

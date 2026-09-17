@@ -4,14 +4,14 @@ namespace Persona\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
 use Persona\Database\Factories\LegalDetailFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class LegalDetail extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 
@@ -36,10 +36,5 @@ class LegalDetail extends Model
             'tax_id' => ConditionalEncrypted::class,
             'tax_id_hash' => LookupHash::class,
         ];
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 }

@@ -13,17 +13,31 @@ class PersonaManager
     use Macroable;
 
     /**
-     * The tables holding data keyed to "personable" morph columns.
+     * Retrieve the tables holding data keyed to "personable" morph columns.
+     *
+     * @return array
      */
-    public const PERSONABLE_TABLES = [
-        'profiles',
-        'social_accounts',
-        'contacts',
-        'addresses',
-        'documents',
-        'physical_attributes',
-        'legal_details',
-    ];
+    public function getTables(): array
+    {
+        return config('persona.tables', []);
+    }
+
+    /**
+     * Resolve a configured model instance from the Central Model Registry.
+     *
+     * @param string $key
+     * @return Model
+     */
+    public function resolveModel(string $key): Model
+    {
+        $class = config("persona.models.{$key}");
+
+        if (!$class) {
+            throw new \InvalidArgumentException("No model configured for key: {$key}");
+        }
+
+        return app($class);
+    }
 
     public function __construct(
         protected ContactManager $contacts,
@@ -97,13 +111,15 @@ class PersonaManager
         $pendingFiles = $this->collectPhysicalDocumentFiles($tables, $type, $id);
 
         DB::transaction(function () use ($personable, $tables, $type, $id) {
-            foreach (self::PERSONABLE_TABLES as $key) {
-                if (isset($tables[$key])) {
-                    DB::table($tables[$key])
-                        ->where('personable_type', $type)
-                        ->where('personable_id', $id)
-                        ->delete();
+            foreach ($this->getTables() as $key => $tableName) {
+                if ($key === 'relationships' || $key === 'document_files') {
+                    continue;
                 }
+
+                DB::table($tableName)
+                    ->where('personable_type', $type)
+                    ->where('personable_id', $id)
+                    ->delete();
             }
 
             if (isset($tables['relationships'])) {

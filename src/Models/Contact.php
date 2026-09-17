@@ -6,15 +6,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Prunable;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Persona\Casts\ConditionalEncrypted;
 use Persona\Casts\LookupHash;
 use Persona\Database\Factories\ContactFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class Contact extends Model
 {
-    use HasFactory, Prunable, SoftDeletes;
+    use BelongsToPersonable, HasFactory, Prunable, SoftDeletes;
 
     protected $guarded = [];
 
@@ -43,11 +43,6 @@ class Contact extends Model
             'verified_at' => 'datetime',
             'is_emergency' => 'boolean',
         ];
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 
     public function prunable(): Builder

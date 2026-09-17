@@ -17,6 +17,8 @@ class DefaultDocumentPathGenerator implements DocumentPathGeneratorContract
      */
     public function generate(Document $document, UploadedFile $file): string
     {
-        return 'persona/documents/' . $document->id;
+        $basePath = trim(config('persona.storage.path', 'persona/documents'), '/');
+
+        return $basePath . '/' . $document->id;
     }
 }

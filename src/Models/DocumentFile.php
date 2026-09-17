@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Persona\Database\Factories\DocumentFileFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class DocumentFile extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 

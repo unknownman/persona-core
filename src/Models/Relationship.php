@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Persona\Database\Factories\RelationshipFactory;
+use Persona\Traits\BelongsToPersonable;
 
 class Relationship extends Model
 {
-    use HasFactory;
+    use BelongsToPersonable, HasFactory;
 
     protected $guarded = [];
 
@@ -25,11 +26,6 @@ class Relationship extends Model
     public function getTable(): string
     {
         return config('persona.tables.relationships', 'persona_relationships');
-    }
-
-    public function personable(): MorphTo
-    {
-        return $this->morphTo();
     }
 
     public function relatedPersonable(): MorphTo
